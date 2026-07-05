@@ -75,6 +75,17 @@ function LoginContent() {
           <span>เข้าสู่ระบบด้วย Google Account</span>
         </button>
 
+        {/* Link to Register page */}
+        <div className="mt-6 text-sm text-slate-400">
+          ยังไม่มีบัญชีในระบบ?{' '}
+          <button
+            onClick={() => router.push('/register')}
+            className="text-emerald-400 hover:text-emerald-300 font-semibold underline underline-offset-4 cursor-pointer"
+          >
+            ลงทะเบียนขอสิทธิ์ใช้งานที่นี่
+          </button>
+        </div>
+
         <div className="flex items-center gap-2 mt-8 text-[11px] text-slate-500 font-semibold tracking-wider">
           <KeyRound className="w-3.5 h-3.5" />
           <span>SECURE END-TO-END CONNECTION</span>
