@@ -11,15 +11,15 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
   const pathname = usePathname();
   const router = useRouter();
 
-  const isLoginPage = pathname === '/login';
+  const isPublicPage = pathname === '/login' || pathname === '/register';
 
   useEffect(() => {
-    if (status === 'unauthenticated' && !isLoginPage) {
+    if (status === 'unauthenticated' && !isPublicPage) {
       router.push('/login');
     }
-  }, [status, isLoginPage, router]);
+  }, [status, isPublicPage, router]);
 
-  if (isLoginPage) {
+  if (isPublicPage) {
     return <>{children}</>;
   }
 
