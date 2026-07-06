@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
   Pill,
@@ -39,7 +40,9 @@ interface Manufacturer {
   manufacturer_name: string;
 }
 
-export default function MedicinesPage() {
+function MedicinesContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
@@ -117,6 +120,26 @@ export default function MedicinesPage() {
     fetchData();
   }, []);
 
+  // Load initial search params once medicines are loaded
+  useEffect(() => {
+    if (loading || medicines.length === 0) return;
+    
+    const codeParam = searchParams.get('code');
+    if (codeParam) {
+      // Clear code query param from URL so it doesn't open again on page refresh
+      const newUrl = window.location.pathname;
+      window.history.replaceState({ ...window.history.state }, '', newUrl);
+
+      // Trigger modal open
+      setBarcodeQuery(codeParam);
+      setIsAddModalOpen(true);
+      // Wait a tick to make sure state is updated and trigger verify
+      setTimeout(() => {
+        handleVerifyBarcode(codeParam);
+      }, 50);
+    }
+  }, [searchParams, loading, medicines]);
+
   const getStatus = (med: Medicine) => {
     const stock = Number(med.current_stock) || 0;
     const min = Number(med.min_stock) || 0;
@@ -176,20 +199,14 @@ export default function MedicinesPage() {
     );
 
     if (matched) {
-      setExistingMatch(matched);
-      setFormData({
-        medicine_code: matched.medicine_code,
-        medicine_name: matched.medicine_name,
-        category: matched.category,
-        unit: matched.unit,
-        manufacturer_id: matched.manufacturer_id,
-        min_stock: Number(matched.min_stock) || 0,
-        location: matched.location,
-        expire_date: matched.expire_date ? matched.expire_date.split('T')[0] : '',
-        note: matched.note,
-      });
-      setRegStep(2);
-      toast.success('พบข้อมูลยารหัสนี้ในระบบ คุณสามารถระบุหรือแก้ไขข้อมูลเพิ่มเติมได้');
+      // Medicine exists! Redirect to stock-in page instead of staying here
+      toast.success('พบข้อมูลยารหัสนี้ในระบบแล้ว กำลังพาท่านไปหน้านำเข้าสต็อกยา...');
+      setIsAddModalOpen(false); // Close the modal
+      
+      // Delay navigation slightly so they can read the toast message
+      setTimeout(() => {
+        router.push(`/stock-in?medicine_id=${matched.medicine_id}`);
+      }, 1000);
     } else {
       setExistingMatch(null);
       setFormData({
@@ -1096,5 +1113,17 @@ export default function MedicinesPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function MedicinesPage() {
+  return (
+    <Suspense fallback={
+      <div className="bg-slate-950/40 border border-slate-800 rounded-3xl p-12 text-center text-slate-400">
+        กำลังโหลดข้อมูลคลังรายการยา...
+      </div>
+    }>
+      <MedicinesContent />
+    </Suspense>
   );
 }
