@@ -50,7 +50,6 @@ const manufacturers = [
   ['MAN003', 'องค์การเภสัชกรรม (GPO)', 'ฝ่ายการตลาดคลัง', '02-203-8000', 'callcenter@gpo.or.th', '75/1 ถ.พระราม 6 กทม.', 'โรงงานเวชภัณฑ์ยาแห่งรัฐ']
 ];
 
-// medicine_id, medicine_code, medicine_name, category, unit, manufacturer_id, min_stock, current_stock, location, expire_date, note, created_at, updated_at
 const now = new Date();
 const nowStr = now.toISOString();
 
@@ -63,30 +62,47 @@ const medicines = [
   ['MED001', 'PARA500', 'Paracetamol 500mg', 'ยาแก้ปวดลดไข้', 'เม็ด', 'MAN001', '200', '1500', 'ตู้ A ชั้น 1', dateIn2Years, 'เก็บพ้นแสง', nowStr, nowStr],
   ['MED002', 'AMOX500', 'Amoxicillin 500mg', 'ยาปฏิชีวนะ', 'แคปซูล', 'MAN002', '300', '120', 'ตู้ B ชั้น 2', dateIn1Year, 'ยาอันตรายควบคุม', nowStr, nowStr], // Low Stock! (120 < 300)
   ['MED003', 'DECOL', 'Decolgen คลายกล้ามเนื้อ', 'ยาแก้แพ้แก้หวัด', 'เม็ด', 'MAN001', '100', '50', 'ตู้ A ชั้น 2', dateIn30Days, 'ระวังอาการง่วงนอน', nowStr, nowStr], // Expiring Soon!
-  ['MED004', 'IBU400', 'Ibuprofen 400mg', 'ยาแก้ปวดอักเสบ', 'เม็ด', 'MAN003', '150', '0', 'ตู้ C ชั้น 1', dateIn2Years, 'ทานหลังอาหารทันที', nowStr, nowStr] // Out of Stock!
+  ['MED004', 'IBU400', 'Ibuprofen 400mg', 'ยาแก้ปวดอักเสบ', 'เม็ด', 'MAN003', '150', '0', 'ตู้ C ชั้น 1', dateIn2Years, 'ทานหลังอาหารทันที', nowStr, nowStr], // Out of Stock!
+  ['MED005', 'CPM4', 'Chlorpheniramine 4mg', 'ยาแก้แพ้', 'เม็ด', 'MAN003', '100', '800', 'ตู้ C ชั้น 2', dateIn2Years, 'หลีกเลี่ยงการขับขี่ยานพาหนะ', nowStr, nowStr],
+  ['MED006', 'ORAL1', 'ORS เกลือแร่', 'เกลือแร่ทดแทน', 'ซอง', 'MAN001', '50', '250', 'ตู้ A ชั้น 3', dateIn1Year, 'ละลายน้ำสะอาดดื่ม', nowStr, nowStr]
 ];
 
-// historical transaction dates
+// Historical transaction dates
 const date3MonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 5).toISOString().split('T')[0];
 const date2MonthsAgo = new Date(now.getFullYear(), now.getMonth() - 1, 10).toISOString().split('T')[0];
 const date1MonthAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 5).toISOString().split('T')[0];
 
-// stock_in_id, medicine_id, lot_no, quantity, unit, expire_date, received_date, supplier, document_no, file_url, created_by, created_at
 const stockIn = [
   ['IN001', 'MED001', 'LOT-P01', '1000', 'เม็ด', dateIn2Years, date3MonthsAgo, 'บริษัท สยามฟาร์มาซูติคอล จำกัด', 'INV-6901', 'https://drive.google.com/file/d/1_demo_invoice_1/view', 'System Seeder', new Date(date3MonthsAgo).toISOString()],
   ['IN002', 'MED001', 'LOT-P02', '1000', 'เม็ด', dateIn2Years, date2MonthsAgo, 'บริษัท สยามฟาร์มาซูติคอล จำกัด', 'INV-7204', '', 'System Seeder', new Date(date2MonthsAgo).toISOString()],
   ['IN003', 'MED002', 'LOT-A1', '200', 'แคปซูล', dateIn1Year, date2MonthsAgo, 'บริษัท เมก้า ไลฟ์ไซแอ็นซ์ จำกัด', 'INV-7320', 'https://drive.google.com/file/d/1_demo_invoice_2/view', 'System Seeder', new Date(date2MonthsAgo).toISOString()],
   ['IN004', 'MED003', 'LOT-D01', '100', 'เม็ด', dateIn30Days, date1MonthAgo, 'บริษัท สยามฟาร์มาซูติคอล จำกัด', 'INV-8002', '', 'System Seeder', new Date(date1MonthAgo).toISOString()],
-  ['IN005', 'MED001', 'LOT-P03', '500', 'เม็ด', dateIn2Years, date1MonthAgo, 'บริษัท สยามฟาร์มาซูติคอล จำกัด', 'INV-8043', '', 'System Seeder', new Date(date1MonthAgo).toISOString()]
+  ['IN005', 'MED001', 'LOT-P03', '500', 'เม็ด', dateIn2Years, date1MonthAgo, 'บริษัท สยามฟาร์มาซูติคอล จำกัด', 'INV-8043', '', 'System Seeder', new Date(date1MonthAgo).toISOString()],
+  ['IN006', 'MED005', 'LOT-C01', '1000', 'เม็ด', dateIn2Years, date1MonthAgo, 'องค์การเภสัชกรรม (GPO)', 'INV-8099', '', 'System Seeder', new Date(date1MonthAgo).toISOString()],
+  ['IN007', 'MED006', 'LOT-O01', '300', 'ซอง', dateIn1Year, date1MonthAgo, 'บริษัท สยามฟาร์มาซูติคอล จำกัด', 'INV-8120', '', 'System Seeder', new Date(date1MonthAgo).toISOString()]
 ];
 
-// stock_out_id, medicine_id, quantity, unit, department, requester, purpose, issued_date, created_by, created_at
+// stock_out_id, medicine_id, quantity, unit, department, requester, purpose, issued_date, created_by, created_at, hn
 const stockOut = [
-  ['OUT001', 'MED001', '300', 'เม็ด', 'แผนกผู้ป่วยนอก (OPD)', 'นพ.สมศักดิ์ รักดี', 'จ่ายยาประจำแผนกรายวัน', date3MonthsAgo, 'System Seeder', new Date(date3MonthsAgo).toISOString()],
-  ['OUT002', 'MED001', '200', 'เม็ด', 'แผนกฉุกเฉิน (ER)', 'พญ.นลิน สวยสม', 'เบิกด่วนเคสรถชน', date2MonthsAgo, 'System Seeder', new Date(date2MonthsAgo).toISOString()],
-  ['OUT003', 'MED002', '80', 'แคปซูล', 'แผนกผู้ป่วยใน (IPD)', 'พยาบาลสุรีย์ มีสุข', 'สำหรับคนไข้วอร์ด 4', date2MonthsAgo, 'System Seeder', new Date(date2MonthsAgo).toISOString()],
-  ['OUT004', 'MED001', '500', 'เม็ด', 'แผนกเภสัชกรรม (กระจายยา)', 'ภญ.พิมพ์ชนก แสงเงิน', 'แจกจ่ายร้านยาชุมชน', date1MonthAgo, 'System Seeder', new Date(date1MonthAgo).toISOString()],
-  ['OUT005', 'MED003', '50', 'เม็ด', 'แผนกผู้ป่วยนอก (OPD)', 'นพ.สมศักดิ์ รักดี', 'จ่ายยากลุ่มหวัดประเดือน', date1MonthAgo, 'System Seeder', new Date(date1MonthAgo).toISOString()]
+  ['OUT001', 'MED001', '300', 'เม็ด', 'แผนกผู้ป่วยนอก (OPD)', 'นพ.สมศักดิ์ รักดี', 'จ่ายยาประจำแผนกรายวัน', date3MonthsAgo, 'System Seeder', new Date(date3MonthsAgo).toISOString(), 'HN 1232679'],
+  ['OUT002', 'MED001', '200', 'เม็ด', 'แผนกฉุกเฉิน (ER)', 'พญ.นลิน สวยสม', 'เบิกด่วนเคสรถชน', date2MonthsAgo, 'System Seeder', new Date(date2MonthsAgo).toISOString(), 'HN 1232680'],
+  ['OUT003', 'MED002', '80', 'แคปซูล', 'แผนกผู้ป่วยใน (IPD)', 'พยาบาลสุรีย์ มีสุข', 'สำหรับคนไข้วอร์ด 4', date2MonthsAgo, 'System Seeder', new Date(date2MonthsAgo).toISOString(), 'HN 1232679'],
+  ['OUT004', 'MED001', '500', 'เม็ด', 'แผนกเภสัชกรรม (กระจายยา)', 'ภญ.พิมพ์ชนก แสงเงิน', 'แจกจ่ายร้านยาชุมชน', date1MonthAgo, 'System Seeder', new Date(date1MonthAgo).toISOString(), ''],
+  ['OUT005', 'MED003', '50', 'เม็ด', 'แผนกผู้ป่วยนอก (OPD)', 'นพ.สมศักดิ์ รักดี', 'จ่ายยากลุ่มหวัดประจำเดือน', date1MonthAgo, 'System Seeder', new Date(date1MonthAgo).toISOString(), 'HN 1232681'],
+  ['OUT006', 'MED001', '50', 'เม็ด', 'แผนกผู้ป่วยใน (IPD)', 'พยาบาลสุรีย์ มีสุข', 'รักษาอาการไข้', date1MonthAgo, 'System Seeder', new Date(date1MonthAgo).toISOString(), 'HN 1232679'],
+  ['OUT007', 'MED003', '20', 'เม็ด', 'แผนกฉุกเฉิน (ER)', 'พญ.นลิน สวยสม', 'ไข้หวัดฉับพลัน', date1MonthAgo, 'System Seeder', new Date(date1MonthAgo).toISOString(), 'HN 1232682'],
+  ['OUT008', 'MED005', '100', 'เม็ด', 'แผนกผู้ป่วยนอก (OPD)', 'นพ.สมศักดิ์ รักดี', 'แก้แพ้ลดน้ำมูกคนไข้ภายนอก', date1MonthAgo, 'System Seeder', new Date(date1MonthAgo).toISOString(), 'HN 1232683'],
+  ['OUT009', 'MED005', '50', 'เม็ด', 'แผนกฉุกเฉิน (ER)', 'พญ.นลิน สวยสม', 'แก้แพ้เคสผื่นขึ้นด่วน', date1MonthAgo, 'System Seeder', new Date(date1MonthAgo).toISOString(), 'HN 1232680'],
+  ['OUT010', 'MED006', '50', 'ซอง', 'แผนกผู้ป่วยนอก (OPD)', 'นพ.สมศักดิ์ รักดี', 'เคสท้องร่วงท้องเสีย', date1MonthAgo, 'System Seeder', new Date(date1MonthAgo).toISOString(), 'HN 1232682']
+];
+
+// hn, name, age, allergy, created_at, updated_at
+const patients = [
+  ['HN 1232679', 'น.ส. พัฒน์นรี สุวรรณ', '46', 'แพ้ยา Penicillin', nowStr, nowStr],
+  ['HN 1232680', 'นาย สมชาย ใจดี', '32', 'ไม่มี', nowStr, nowStr],
+  ['HN 1232681', 'นาง สมศรี มีความสุข', '58', 'แพ้ยา Aspirin', nowStr, nowStr],
+  ['HN 1232682', 'ด.ช. เก่งกล้า รักเรียน', '12', 'ไม่มี', nowStr, nowStr],
+  ['HN 1232683', 'น.ส. อารียา รุ่งเรือง', '27', 'ไม่มี', nowStr, nowStr]
 ];
 
 async function seed() {
@@ -94,14 +110,18 @@ async function seed() {
     console.log('\x1b[36m%s\x1b[0m', '🔄 เริ่มการล้างข้อมูลเดิมและเขียนข้อมูลจำลอง (Seed Data)...');
 
     // Clear existing data (everything below row 1)
-    const sheetsToClear = ['Medicines', 'Manufacturers', 'StockIn', 'StockOut'];
+    const sheetsToClear = ['Medicines', 'Manufacturers', 'StockIn', 'StockOut', 'Patients'];
     for (const sheetName of sheetsToClear) {
-      await sheets.spreadsheets.values.clear({
-        spreadsheetId,
-        range: `${sheetName}!A2:Z5000`,
-      });
+      try {
+        await sheets.spreadsheets.values.clear({
+          spreadsheetId,
+          range: `${sheetName}!A2:Z5000`,
+        });
+      } catch (err) {
+        console.warn(`⚠️ Warning: ไม่สามารถล้างข้อมูลชีต ${sheetName} ได้ (อาจจะไม่มีชีตนี้อยู่ในปัจจุบัน)`);
+      }
     }
-    console.log('✅ ล้างข้อมูลเก่าของชีต Medicines, Manufacturers, StockIn, StockOut เรียบร้อย');
+    console.log('✅ ล้างข้อมูลเก่าของชีตเรียบร้อย');
 
     // Seed Manufacturers
     console.log('🔄 กำลังเขียนข้อมูลผู้จัดจำหน่าย (Manufacturers)...');
@@ -137,6 +157,15 @@ async function seed() {
       range: 'StockOut!A2',
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: stockOut },
+    });
+
+    // Seed Patients Records
+    console.log('🔄 กำลังเขียนข้อมูลผู้ป่วยจำลอง (Patients)...');
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: 'Patients!A2',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: patients },
     });
 
     console.log('\n\x1b[32m%s\x1b[0m', '🎉 ทำการสร้างข้อมูลจำลอง (Seed Data) ลง Google Sheets เรียบร้อยแล้ว!');
