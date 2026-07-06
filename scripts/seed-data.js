@@ -51,10 +51,11 @@ const dateIn30Days = new Date(now.getFullYear(), now.getMonth(), now.getDate() +
 const dateIn2Years = new Date(now.getFullYear() + 2, now.getMonth(), now.getDate()).toISOString().split('T')[0];
 const dateIn1Year = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString().split('T')[0];
 
-function getPastDate(daysAgo) {
-  const d = new Date(now);
-  d.setDate(d.getDate() - daysAgo);
-  return d;
+function getRandomDateFrom2025() {
+  const start = new Date('2025-01-01T00:00:00Z').getTime();
+  const end = now.getTime();
+  const randomTime = start + Math.random() * (end - start);
+  return new Date(randomTime);
 }
 
 // 1. Manufacturers (5 entries)
@@ -66,26 +67,81 @@ const manufacturers = [
   ['MAN005', 'บริษัท ไบโอแลป จำกัด', 'คุณวิชัย เจริญวิทย์', '02-726-9000', 'sales@biolab.co.th', '999 ถ.บางนา-ตราด สมุทรปราการ', 'ผู้เชี่ยวชาญด้านเวชภัณฑ์และครีมรักษาโรค']
 ];
 
-// 2. Medicines (15 entries)
-const medicineTemplates = [
-  ['MED001', 'PARA500', 'Paracetamol 500mg', 'ยาแก้ปวดลดไข้', 'เม็ด', 'MAN001', '200', '1500', 'ตู้ A ชั้น 1', dateIn2Years, 'เก็บพ้นแสง'],
-  ['MED002', 'AMOX500', 'Amoxicillin 500mg', 'ยาปฏิชีวนะ', 'แคปซูล', 'MAN002', '300', '120', 'ตู้ B ชั้น 2', dateIn1Year, 'ยาอันตรายควบคุม'],
-  ['MED003', 'DECOL', 'Decolgen คลายกล้ามเนื้อ', 'ยาแก้แพ้แก้หวัด', 'เม็ด', 'MAN001', '100', '50', 'ตู้ A ชั้น 2', dateIn30Days, 'ระวังอาการง่วงนอน'],
-  ['MED004', 'IBU400', 'Ibuprofen 400mg', 'ยาแก้ปวดอักเสบ', 'เม็ด', 'MAN003', '150', '0', 'ตู้ C ชั้น 1', dateIn2Years, 'ทานหลังอาหารทันที'],
-  ['MED005', 'CPM4', 'Chlorpheniramine 4mg', 'ยาแก้แพ้', 'เม็ด', 'MAN003', '100', '800', 'ตู้ C ชั้น 2', dateIn2Years, 'หลีกเลี่ยงการขับขี่ยานพาหนะ'],
-  ['MED006', 'ORAL1', 'ORS เกลือแร่', 'เกลือแร่ทดแทน', 'ซอง', 'MAN001', '50', '250', 'ตู้ A ชั้น 3', dateIn1Year, 'ละลายน้ำสะอาดดื่ม'],
-  ['MED007', 'PARA_SYR', 'Paracetamol Syrup 120mg/5ml', 'ยาแก้ปวดลดไข้เด็ก', 'ขวด', 'MAN004', '30', '180', 'ตู้ D ชั้น 1', dateIn1Year, 'เขย่าขวดก่อนใช้'],
-  ['MED008', 'METFORMIN', 'Metformin 500mg', 'ยารักษาเบาหวาน', 'เม็ด', 'MAN003', '500', '2400', 'ตู้ E ชั้น 1', dateIn2Years, 'ทานพร้อมอาหาร'],
-  ['MED009', 'LOSARTAN', 'Losartan 50mg', 'ยาลดความดันโลหิต', 'เม็ด', 'MAN002', '400', '1800', 'ตู้ E ชั้น 2', dateIn2Years, 'ทานวันละ 1 ครั้งเวลาเดิม'],
-  ['MED010', 'ATORVASTATIN', 'Atorvastatin 20mg', 'ยาลดไขมันในเลือด', 'เม็ด', 'MAN001', '300', '950', 'ตู้ E ชั้น 3', dateIn2Years, 'ทานก่อนนอน'],
-  ['MED011', 'SALBUTAMOL', 'Salbutamol Inhaler 100mcg', 'ยารักษาโรคหอบหืด', 'หลอดพ่น', 'MAN005', '20', '45', 'ตู้ B ชั้น 3', dateIn1Year, 'ยาพ่นฉุกเฉิน'],
-  ['MED012', 'OMEPRAZOLE', 'Omeprazole 20mg', 'ยารักษาโรคกระเพาะ', 'แคปซูล', 'MAN004', '200', '1100', 'ตู้ F ชั้น 1', dateIn2Years, 'ทานก่อนอาหาร 30 นาที'],
-  ['MED013', 'CETIRIZINE', 'Cetirizine 10mg', 'ยาแก้แพ้ชนิดไม่ง่วง', 'เม็ด', 'MAN002', '100', '650', 'ตู้ C ชั้น 3', dateIn2Years, 'ทานวันละ 1 เม็ด'],
-  ['MED014', 'VIT_C', 'Vitamin C 1000mg', 'วิตามินและอาหารเสริม', 'เม็ด', 'MAN002', '50', '500', 'ตู้ G ชั้น 1', dateIn2Years, 'ทานหลังอาหารเช้า'],
-  ['MED015', 'POVIDONE', 'Povidone Iodine 15ml', 'ยาใส่แผลภายนอก', 'ขวด', 'MAN005', '30', '90', 'ตู้ H ชั้น 1', dateIn2Years, 'ห้ามรับประทาน']
+// 2. Generate 100 unique medicines
+const drugBases = [
+  { name: 'Paracetamol', cat: 'ยาแก้ปวดลดไข้', unit: 'เม็ด' },
+  { name: 'Amoxicillin', cat: 'ยาปฏิชีวนะ', unit: 'แคปซูล' },
+  { name: 'Decolgen', cat: 'ยาแก้แพ้แก้หวัด', unit: 'เม็ด' },
+  { name: 'Ibuprofen', cat: 'ยาแก้ปวดอักเสบ', unit: 'เม็ด' },
+  { name: 'Chlorpheniramine', cat: 'ยาแก้แพ้', unit: 'เม็ด' },
+  { name: 'ORS Powder', cat: 'เกลือแร่ทดแทน', unit: 'ซอง' },
+  { name: 'Metformin', cat: 'ยารักษาเบาหวาน', unit: 'เม็ด' },
+  { name: 'Losartan', cat: 'ยาลดความดันโลหิต', unit: 'เม็ด' },
+  { name: 'Atorvastatin', cat: 'ยาลดไขมันในเลือด', unit: 'เม็ด' },
+  { name: 'Salbutamol Inhaler', cat: 'ยารักษาโรคหอบหืด', unit: 'หลอดพ่น' },
+  { name: 'Omeprazole', cat: 'ยารักษาโรคกระเพาะ', unit: 'แคปซูล' },
+  { name: 'Cetirizine', cat: 'ยาแก้แพ้ชนิดไม่ง่วง', unit: 'เม็ด' },
+  { name: 'Vitamin C', cat: 'วิตามินและอาหารเสริม', unit: 'เม็ด' },
+  { name: 'Povidone Iodine', cat: 'ยาใส่แผลภายนอก', unit: 'ขวด' },
+  { name: 'Amlodipine', cat: 'ยาลดความดันโลหิต', unit: 'เม็ด' },
+  { name: 'Simvastatin', cat: 'ยาลดไขมันในเลือด', unit: 'เม็ด' },
+  { name: 'Clopidogrel', cat: 'ยาต้านเกล็ดเลือด', unit: 'เม็ด' },
+  { name: 'Gliclazide', cat: 'ยารักษาเบาหวาน', unit: 'เม็ด' },
+  { name: 'Prednisolone', cat: 'ยาสเตียรอยด์', unit: 'เม็ด' },
+  { name: 'Diazepam', cat: 'ยาคลายกังวล/นอนหลับ', unit: 'เม็ด' },
+  { name: 'Tramadol', cat: 'ยาแก้ปวดรุนแรง', unit: 'แคปซูล' },
+  { name: 'Aspirin', cat: 'ยาต้านเกล็ดเลือด', unit: 'เม็ด' },
+  { name: 'Ranitidine', cat: 'ยารักษาโรคกระเพาะ', unit: 'เม็ด' },
+  { name: 'Multivitamin', cat: 'วิตามินและอาหารเสริม', unit: 'เม็ด' },
+  { name: 'Calcium Carbonate', cat: 'วิตามินและอาหารเสริม', unit: 'เม็ด' }
 ];
 
-const medicines = medicineTemplates.map(m => [...m, nowStr, nowStr]);
+const strengths = ['5mg', '10mg', '20mg', '50mg', '100mg', '250mg', '500mg', '1000mg'];
+
+const medicines = [];
+const medicineTemplatesForTx = []; // matching list for generating transactions
+
+for (let i = 1; i <= 100; i++) {
+  const base = drugBases[i % drugBases.length];
+  const str = strengths[i % strengths.length];
+  const medId = `MED${String(i).padStart(3, '0')}`;
+  const code = `${base.name.substring(0, 4).toUpperCase()}_${str.toUpperCase()}_${i}`;
+  const name = `${base.name} ${str}`;
+  const cat = base.cat;
+  const unit = base.unit;
+  const manId = `MAN00${(i % 5) + 1}`;
+  const minStock = String(Math.floor(Math.random() * 5) * 50 + 100); // 100 to 300
+  const currentStock = String(Math.floor(Math.random() * 15) * 100 + 800); // 800 to 2200
+  const location = `ตู้ ${String.fromCharCode(65 + (i % 8))} ชั้น ${(i % 4) + 1}`;
+  const expDate = i % 10 === 0 ? dateIn30Days : (i % 2 === 0 ? dateIn1Year : dateIn2Years);
+  const note = i % 5 === 0 ? 'ระวังอาการง่วงนอน' : (i % 3 === 0 ? 'ยาอันตรายควบคุม' : 'เก็บพ้นแสง');
+
+  // Push to medicines table input (13 columns: id, code, name, category, unit, manId, minStock, currentStock, location, expire, note, created, updated)
+  medicines.push([
+    medId,
+    code,
+    name,
+    cat,
+    unit,
+    manId,
+    minStock,
+    currentStock,
+    location,
+    expDate,
+    note,
+    nowStr,
+    nowStr
+  ]);
+
+  // Keep a clean structure to use in transactions loop
+  medicineTemplatesForTx.push({
+    medicine_id: medId,
+    medicine_code: code,
+    medicine_name: name,
+    unit,
+    expire_date: expDate
+  });
+}
 
 // 3. Patients (20 entries)
 const patientNames = [
@@ -94,7 +150,6 @@ const patientNames = [
   'นาย ณัฐพงษ์ ทองคำ', 'น.ส. กัญญารัตน์ โพธิ์ทอง', 'นาย กิตติศักดิ์ ชัยชนะ', 'นาง ศิริพร พูนผล', 'นาย เกียรติศักดิ์ อุดมสุข',
   'น.ส. วรัญญา สิงห์โต', 'นาย ธีรภัทร สมบัติ', 'นาง นงลักษณ์ ยอดรัก', 'นาย ปกรณ์ ปัญญาดี', 'น.ส. พรหมพร จันทร์เพ็ญ'
 ];
-
 const allergies = ['ไม่มี', 'แพ้ยา Penicillin', 'ไม่มี', 'แพ้ยา Aspirin', 'ไม่มี', 'ไม่มี', 'แพ้ยา Sulfa', 'ไม่มี', 'ไม่มี', 'ไม่มี'];
 
 const patients = [];
@@ -105,14 +160,7 @@ for (let i = 0; i < patientNames.length; i++) {
   patients.push([hn, patientNames[i], String(age), allergy, nowStr, nowStr]);
 }
 
-// 4. StockIn Transactions (50 entries)
-function getRandomDateSinceStartOfYear() {
-  const start = new Date(now.getFullYear(), 0, 1).getTime();
-  const end = now.getTime();
-  const randomTime = start + Math.random() * (end - start);
-  return new Date(randomTime);
-}
-
+// 4. StockIn Transactions (200 entries)
 const recorders = [
   'ภญ.พิมพ์ชนก แสงเงิน',
   'ภก.สมเจตน์ มั่นคง',
@@ -122,7 +170,6 @@ const recorders = [
   'Admin User'
 ];
 
-const stockInRaw = [];
 const suppliers = [
   'บริษัท สยามฟาร์มาซูติคอล จำกัด',
   'บริษัท เมก้า ไลฟ์ไซแอ็นซ์ จำกัด',
@@ -131,26 +178,23 @@ const suppliers = [
   'บริษัท ไบโอแลป จำกัด'
 ];
 
-for (let i = 1; i <= 50; i++) {
-  const med = medicineTemplates[Math.floor(Math.random() * medicineTemplates.length)];
-  const medId = med[0];
-  const lotNo = `LOT-${med[1]}-${Math.floor(Math.random() * 90) + 10}`;
+const stockInRaw = [];
+for (let i = 1; i <= 200; i++) {
+  const med = medicineTemplatesForTx[Math.floor(Math.random() * medicineTemplatesForTx.length)];
+  const lotNo = `LOT-${med.medicine_code}-${Math.floor(Math.random() * 90) + 10}`;
   const quantity = Math.floor(Math.random() * 10) * 100 + 1000; // 1000 to 1900
-  const unit = med[4];
-  const expireDate = med[9];
-  
-  const randDate = getRandomDateSinceStartOfYear();
+  const randDate = getRandomDateFrom2025();
   const supplier = suppliers[Math.floor(Math.random() * suppliers.length)];
   const docNo = `INV-${Math.floor(Math.random() * 9000) + 1000}`;
   const fileUrl = Math.random() > 0.5 ? `https://drive.google.com/file/d/demo_inv_${i}/view` : '';
   const creator = recorders[Math.floor(Math.random() * recorders.length)];
 
   stockInRaw.push({
-    medId,
+    medId: med.medicine_id,
     lotNo,
     quantity,
-    unit,
-    expireDate,
+    unit: med.unit,
+    expireDate: med.expire_date,
     randDate,
     supplier,
     docNo,
@@ -182,8 +226,7 @@ const stockIn = stockInRaw.map((item, index) => {
   ];
 });
 
-// 5. StockOut Transactions (100 entries)
-const stockOutRaw = [];
+// 5. StockOut Transactions (300 entries)
 const departments = [
   'แผนกผู้ป่วยนอก (OPD)',
   'แผนกผู้ป่วยใน (IPD)',
@@ -201,26 +244,23 @@ const purposes = [
   'กระจายยาสู่ห้องยาผู้ป่วยนอก', 'จ่ายยาคนไข้เบาหวาน/ความดัน', 'เบิกเติมยาสามัญประจำตู้', 'ระงับปวดฉุกเฉิน'
 ];
 
-for (let i = 1; i <= 100; i++) {
-  const med = medicineTemplates[Math.floor(Math.random() * medicineTemplates.length)];
-  const medId = med[0];
+const stockOutRaw = [];
+for (let i = 1; i <= 300; i++) {
+  const med = medicineTemplatesForTx[Math.floor(Math.random() * medicineTemplatesForTx.length)];
   const quantity = Math.floor(Math.random() * 15) * 5 + 10; // 10 to 80
-  const unit = med[4];
   const dept = departments[Math.floor(Math.random() * departments.length)];
   const requester = doctors[Math.floor(Math.random() * doctors.length)];
   const purpose = purposes[Math.floor(Math.random() * purposes.length)];
-  
-  const randDate = getRandomDateSinceStartOfYear();
+  const randDate = getRandomDateFrom2025();
   const creator = recorders[Math.floor(Math.random() * recorders.length)];
-  
   const hasPatient = Math.random() < 0.90;
   const patient = hasPatient ? patients[Math.floor(Math.random() * patients.length)] : null;
   const hn = patient ? patient[0] : '';
 
   stockOutRaw.push({
-    medId,
+    medId: med.medicine_id,
     quantity,
-    unit,
+    unit: med.unit,
     dept,
     requester,
     purpose,
@@ -262,7 +302,7 @@ async function seed() {
       try {
         await sheets.spreadsheets.values.clear({
           spreadsheetId,
-          range: `${sheetName}!A2:Z5000`,
+          range: `${sheetName}!A2:Z10000`,
         });
       } catch (err) {
         console.warn(`⚠️ Warning: ไม่สามารถล้างข้อมูลชีต ${sheetName} ได้`);
@@ -280,7 +320,7 @@ async function seed() {
     });
 
     // Seed Medicines
-    console.log('🔄 กำลังเขียนข้อมูลเวชภัณฑ์ยาจำลอง (15 รายการ)...');
+    console.log(`🔄 กำลังเขียนข้อมูลเวชภัณฑ์ยาจำลอง (${medicines.length} รายการ)...`);
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: 'Medicines!A2',
@@ -307,7 +347,7 @@ async function seed() {
     });
 
     // Seed Patients Records
-    console.log('🔄 กำลังเขียนข้อมูลผู้ป่วยจำลอง (20 รายการ)...');
+    console.log(`🔄 กำลังเขียนข้อมูลผู้ป่วยจำลอง (${patients.length} รายการ)...`);
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: 'Patients!A2',
