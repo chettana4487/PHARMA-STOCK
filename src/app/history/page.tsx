@@ -53,6 +53,7 @@ export default function HistoryPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [selectedOperator, setSelectedOperator] = useState('all');
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -89,9 +90,17 @@ export default function HistoryPage() {
   // Reset pagination on filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedType, startDate, endDate]);
+  }, [searchQuery, selectedType, startDate, endDate, selectedOperator]);
 
   const patientMap = new Map(patients.map(p => [p.hn.trim().toLowerCase(), p.name]));
+  
+  // Extract all unique requesters (for Stock Out) and operators (recorders)
+  const peopleList = Array.from(
+    new Set([
+      ...transactions.filter(t => t.type === 'out').map(t => t.document_no?.trim()),
+      ...transactions.map(t => t.operator?.trim())
+    ])
+  ).filter(Boolean).filter(name => name !== '-' && name !== 'ไม่ระบุ').sort();
 
   // Filter application
   const filteredTransactions = transactions.filter((t) => {
@@ -122,7 +131,12 @@ export default function HistoryPage() {
       }
     }
 
-    return matchesSearch && matchesType && matchesDate;
+    const matchesOperator =
+      selectedOperator === 'all' ||
+      t.operator === selectedOperator ||
+      (t.type === 'out' && t.document_no === selectedOperator);
+
+    return matchesSearch && matchesType && matchesDate && matchesOperator;
   });
 
   // Pagination calculations
@@ -234,7 +248,7 @@ export default function HistoryPage() {
       </div>
 
       {/* Filter panel */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 bg-slate-950/40 border border-slate-800 p-4 rounded-3xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 bg-slate-950/40 border border-slate-800 p-4 rounded-3xl">
         {/* Search */}
         <div className="relative sm:col-span-2 lg:col-span-2">
           <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -242,7 +256,7 @@ export default function HistoryPage() {
           </span>
           <input
             type="text"
-            placeholder="ค้นหายา, เลขธุรกรรม, หน่วยงาน, หรือผู้ทำรายการ..."
+            placeholder="ค้นหายา, เลขธุรกรรม, หน่วยงาน..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-slate-900 border border-slate-800 text-sm rounded-2xl pl-10 pr-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
@@ -258,6 +272,20 @@ export default function HistoryPage() {
           <option value="all">ประเภทธุรกรรมทั้งหมด</option>
           <option value="in">เฉพาะการนำเข้า (Stock In)</option>
           <option value="out">เฉพาะการเบิกจ่าย (Stock Out)</option>
+        </select>
+
+        {/* Operator Filter */}
+        <select
+          value={selectedOperator}
+          onChange={(e) => setSelectedOperator(e.target.value)}
+          className="bg-slate-900 border border-slate-800 text-sm rounded-2xl px-4 py-3 text-slate-300 focus:outline-none focus:border-emerald-500"
+        >
+          <option value="all">ผู้เบิก / ผู้บันทึกทุกคน</option>
+          {peopleList.map((person) => (
+            <option key={person} value={person}>
+              {person}
+            </option>
+          ))}
         </select>
 
         {/* Start Date */}
@@ -368,7 +396,7 @@ export default function HistoryPage() {
                         })}
                       </td>
                       <td className="py-4 px-6 text-slate-400 text-xs font-semibold">
-                        {t.operator}
+                        {t.operator || 'ไม่ระบุ'}
                       </td>
                       <td className="py-4 px-6 text-center">
                         {t.file_url ? (
@@ -476,7 +504,7 @@ export default function HistoryPage() {
                       <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ผู้ทำรายการ</span>
                       <span className="text-slate-300 text-xs mt-1 font-semibold flex items-center gap-1">
                         <User className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                        {t.operator}
+                        {t.operator || 'ไม่ระบุ'}
                       </span>
                     </div>
                   </div>

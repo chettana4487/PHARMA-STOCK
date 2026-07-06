@@ -19,6 +19,7 @@ import {
   Users,
   Sun,
   Moon,
+  BarChart3,
 } from 'lucide-react';
 
 const navItems = [
@@ -28,6 +29,7 @@ const navItems = [
   { name: 'เบิกจ่ายยา', href: '/stock-out', icon: ArrowUpRight },
   { name: 'ประวัติธุรกรรม', href: '/history', icon: History },
   { name: 'ประวัติผู้ป่วย', href: '/patients', icon: Users },
+  { name: 'วิเคราะห์คลังยา', href: '/analytics', icon: BarChart3 },
   { name: 'ผู้ผลิต/ผู้จัดจำหน่าย', href: '/manufacturers', icon: Factory },
 ];
 
