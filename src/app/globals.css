@@ -3,6 +3,111 @@
 :root {
   --background: #0b0f19; /* Custom premium dark blue-slate */
   --foreground: #f8fafc; /* slate-50 */
+  
+  /* Tailwind v4 color variables overrides for Dark Mode */
+  --color-slate-950: #020617;
+  --color-slate-900: #0b0f19;
+  --color-slate-800: #1e293b;
+  --color-slate-700: #334155;
+  --color-slate-600: #475569;
+  --color-slate-550: #475569;
+  --color-slate-500: #64748b;
+  --color-slate-400: #94a3b8;
+  --color-slate-300: #cbd5e1;
+  --color-slate-200: #e2e8f0;
+}
+
+.light {
+  --background: #f8fafc; /* slate-50 */
+  --foreground: #0f172a; /* slate-900 */
+
+  /* Tailwind v4 color variables overrides for Light Mode */
+  --color-slate-950: #ffffff;      /* main panel backgrounds / cards */
+  --color-slate-900: #f1f5f9;      /* input backgrounds */
+  --color-slate-850: #e2e8f0;
+  --color-slate-800: #cbd5e1;      /* borders / separators */
+  --color-slate-750: #cbd5e1;
+  --color-slate-700: #cbd5e1;
+  --color-slate-600: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-400: #475569;      /* text description / helper text */
+  --color-slate-350: #334155;
+  --color-slate-300: #1e293b;      /* normal texts */
+  --color-slate-250: #0f172a;
+  --color-slate-200: #0f172a;      /* primary text titles */
+  --color-slate-100: #0f172a;
+
+  /* Switch text-white colors to dark slate for heading readability */
+  --color-white: #0f172a;
+}
+
+/* Override NextAuth loading overlay and container */
+.light .bg-slate-950 {
+  background-color: #ffffff !important;
+}
+
+/* Layout container dark bg helper override */
+.light .bg-\[\#0b0f19\] {
+  background-color: var(--background) !important;
+}
+
+/* Ensure interactive elements keep high-contrast white text in light mode */
+.light .text-white,
+.light button.text-white,
+.light button .text-white,
+.light a.text-white,
+.light button.bg-emerald-600,
+.light button.bg-rose-600,
+.light button.bg-blue-600,
+.light button.bg-emerald-700,
+.light a.bg-emerald-600,
+.light a.bg-rose-600,
+.light a.bg-blue-600,
+.light select option {
+  color: #ffffff !important;
+}
+
+/* Inputs and Forms fixing */
+.light input,
+.light select,
+.light textarea {
+  color: #0f172a !important;
+}
+.light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Warnings and alerts color adjustments */
+.light .text-emerald-300 {
+  color: #047857 !important; /* emerald-700 */
+}
+.light .text-emerald-400 {
+  color: #059669 !important; /* emerald-600 */
+}
+.light .text-rose-300 {
+  color: #be123c !important; /* rose-700 */
+}
+.light .text-rose-400 {
+  color: #e11d48 !important; /* rose-600 */
+}
+
+/* Sidebar navigation item overrides */
+.light .bg-gradient-to-r.from-emerald-600\/20 {
+  background-image: linear-gradient(to right, rgba(16, 185, 129, 0.15), rgba(20, 184, 166, 0.05)) !important;
+  color: #059669 !important; /* emerald-600 */
+}
+.light nav a.text-slate-400:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Glassmorphism panel styling adjust */
+.light .bg-slate-950\/40,
+.light .bg-slate-950\/60,
+.light .bg-slate-950\/20 {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(10px);
 }
 
 @theme inline {
@@ -25,11 +130,19 @@ body {
 ::-webkit-scrollbar-track {
   background: #0b0f19;
 }
+.light ::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
 ::-webkit-scrollbar-thumb {
   background: #1e293b;
   border-radius: 4px;
 }
+.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
-
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

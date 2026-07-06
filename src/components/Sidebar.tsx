@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
+import toast from 'react-hot-toast';
 import {
   LayoutDashboard,
   Pill,
@@ -16,6 +17,8 @@ import {
   X,
   Activity,
   Users,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 const navItems = [
@@ -32,6 +35,23 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  useEffect(() => {
+    const storedTheme = localStorage.getItem('theme') || 'dark';
+    setTheme(storedTheme as 'light' | 'dark');
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(storedTheme);
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('theme', nextTheme);
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(nextTheme);
+    toast.success(`เปลี่ยนโหมดเป็น: ${nextTheme === 'dark' ? 'มืด (Dark)' : 'สว่าง (Light)'}`);
+  };
 
   const role = session?.user?.role || 'viewer';
   
@@ -152,6 +172,29 @@ export default function Sidebar() {
               </div>
             </div>
           )}
+
+          {/* Theme Selector Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-900/60 border border-slate-800/80 hover:bg-slate-900 text-slate-400 hover:text-slate-200 transition-all duration-200 mb-3 cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              {theme === 'dark' ? (
+                <>
+                  <Moon className="w-4 h-4 text-emerald-400" />
+                  <span>โหมดมืด (Dark Theme)</span>
+                </>
+              ) : (
+                <>
+                  <Sun className="w-4 h-4 text-amber-500" />
+                  <span>โหมดสว่าง (Light Theme)</span>
+                </>
+              )}
+            </span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-widest font-extrabold bg-slate-950 px-2 py-0.5 rounded border border-slate-900">
+              {theme === 'dark' ? 'Dark' : 'Light'}
+            </span>
+          </button>
 
           <button
             onClick={() => signOut()}
