@@ -39,6 +39,7 @@ export default function StockOutPage() {
 
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [existingRequesters, setExistingRequesters] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerMode, setScannerMode] = useState<'medicine' | 'patient'>('medicine');
@@ -123,16 +124,27 @@ export default function StockOutPage() {
   async function fetchMedicines() {
     try {
       setLoading(true);
-      const [medRes, patRes] = await Promise.all([
+      const [medRes, patRes, txRes] = await Promise.all([
         fetch('/api/medicines'),
         fetch('/api/patients'),
+        fetch('/api/transactions'),
       ]);
 
-      if (medRes.ok && patRes.ok) {
+      if (medRes.ok && patRes.ok && txRes.ok) {
         const medData = await medRes.json();
         const patData = await patRes.json();
+        const txData = await txRes.json();
         setMedicines(medData);
         setPatients(patData);
+        
+        // Extract unique requesters (document_no) from StockOut transactions
+        const requesters = Array.from(new Set(
+          txData
+            .filter((t: any) => t.type === 'out' && t.document_no)
+            .map((t: any) => t.document_no.trim())
+        )).sort() as string[];
+        setExistingRequesters(requesters);
+
         if (medData.length > 0) {
           setFormData((prev) => ({
             ...prev,
@@ -141,7 +153,7 @@ export default function StockOutPage() {
           }));
         }
       } else {
-        toast.error('ล้มเหลวในการดึงข้อมูลยาหรือผู้ป่วย');
+        toast.error('ล้มเหลวในการดึงข้อมูลยา, ผู้ป่วย หรือประวัติธุรกรรม');
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -542,11 +554,17 @@ export default function StockOutPage() {
                     type="text"
                     name="requester"
                     required
+                    list="requester-list"
                     placeholder="ระบุชื่อและนามสกุลเจ้าหน้าที่"
                     value={formData.requester}
                     onChange={handleInputChange}
-                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500"
+                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500 font-bold"
                   />
+                  <datalist id="requester-list">
+                    {existingRequesters.map((req, idx) => (
+                      <option key={idx} value={req} />
+                    ))}
+                  </datalist>
                 </div>
               </div>
 
