@@ -15,6 +15,13 @@ import {
   FileText,
 } from 'lucide-react';
 
+interface Patient {
+  hn: string;
+  name: string;
+  age: number;
+  allergy: string;
+}
+
 interface Transaction {
   id: string;
   type: 'in' | 'out';
@@ -31,10 +38,12 @@ interface Transaction {
   document_no?: string;
   file_url?: string;
   created_at: string;
+  hn?: string;
 }
 
 export default function HistoryPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters State
@@ -43,18 +52,24 @@ export default function HistoryPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  async function fetchTransactions() {
+  async function fetchData() {
     try {
       setLoading(true);
-      const res = await fetch('/api/transactions');
-      if (res.ok) {
-        const data = await res.json();
-        setTransactions(data);
+      const [txRes, patRes] = await Promise.all([
+        fetch('/api/transactions'),
+        fetch('/api/patients'),
+      ]);
+
+      if (txRes.ok && patRes.ok) {
+        const txData = await txRes.json();
+        const patData = await patRes.json();
+        setTransactions(txData);
+        setPatients(patData);
       } else {
-        toast.error('ล้มเหลวในการดาวน์โหลดประวัติเดินคลัง');
+        toast.error('ล้มเหลวในการดาวน์โหลดประวัติเดินคลังหรือข้อมูลผู้ป่วย');
       }
     } catch (error) {
-      console.error('Error fetching transactions:', error);
+      console.error('Error fetching history logs:', error);
       toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูลประวัติ');
     } finally {
       setLoading(false);
@@ -62,17 +77,22 @@ export default function HistoryPage() {
   }
 
   useEffect(() => {
-    fetchTransactions();
+    fetchData();
   }, []);
+
+  const patientMap = new Map(patients.map(p => [p.hn.trim().toLowerCase(), p.name]));
 
   // Filter application
   const filteredTransactions = transactions.filter((t) => {
+    const patientName = t.hn ? patientMap.get(t.hn.trim().toLowerCase()) || '' : '';
     const matchesSearch =
       t.medicine_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.medicine_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.supplier_or_dept.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.operator.toLowerCase().includes(searchQuery.toLowerCase());
+      t.operator.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.hn && t.hn.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      patientName.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesType = selectedType === 'all' || t.type === selectedType;
 
@@ -251,7 +271,7 @@ export default function HistoryPage() {
                   <th className="py-4 px-6 text-right">จำนวน</th>
                   <th className="py-4 px-6">หน่วยนับ</th>
                   <th className="py-4 px-6">ผู้ขาย / แผนกผู้เบิก</th>
-                  <th className="py-4 px-6">ผู้เบิก / เลขที่อ้างอิง</th>
+                  <th className="py-4 px-6">ผู้เบิก / คนไข้</th>
                   <th className="py-4 px-6">วันบันทึกรายการ</th>
                   <th className="py-4 px-6">ผู้ทำรายการ</th>
                   <th className="py-4 px-6 text-center">ไฟล์อ้างอิง</th>
@@ -303,7 +323,12 @@ export default function HistoryPage() {
                         {t.supplier_or_dept}
                       </td>
                       <td className="py-4 px-6 text-slate-400 text-xs">
-                        {t.document_no || <span className="text-slate-600">-</span>}
+                        <span className="font-bold text-slate-300 block">{t.document_no || '-'}</span>
+                        {t.type === 'out' && t.hn && (
+                          <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-300 border border-emerald-500/10 px-1.5 py-0.5 rounded text-[10px] font-bold mt-1">
+                            HN: {t.hn} {patientMap.get(t.hn.trim().toLowerCase()) ? `(${patientMap.get(t.hn.trim().toLowerCase())})` : ''}
+                          </span>
+                        )}
                       </td>
                       <td className="py-4 px-6 text-xs text-slate-400">
                         {new Date(t.date).toLocaleDateString('th-TH', {
@@ -403,9 +428,19 @@ export default function HistoryPage() {
                     </div>
 
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">เลขที่อ้างอิง</span>
-                      <span className="text-slate-300 text-xs mt-1 font-mono">{t.document_no || <span className="text-slate-600">-</span>}</span>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ผู้เบิกจ่าย / อ้างอิง</span>
+                      <span className="text-slate-300 text-xs mt-1 font-bold">{t.document_no || <span className="text-slate-600">-</span>}</span>
                     </div>
+
+                    {t.type === 'out' && t.hn && (
+                      <div className="flex flex-col col-span-2 pt-2 border-t border-slate-800/40">
+                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ผู้รับบริการ (คนไข้)</span>
+                        <span className="inline-flex items-center gap-1.5 text-emerald-400 text-xs mt-1 font-bold">
+                          <User className="w-3.5 h-3.5" />
+                          {t.hn} {patientMap.get(t.hn.trim().toLowerCase()) ? `(${patientMap.get(t.hn.trim().toLowerCase())})` : ''}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="flex flex-col">
                       <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ผู้ทำรายการ</span>
