@@ -51,8 +51,18 @@ export interface StockOut {
   requester: string;
   purpose: string;
   issued_date: string;
+  hn?: string;
   created_by: string;
   created_at: string;
+}
+
+export interface Patient {
+  hn: string;
+  name: string;
+  age: number;
+  allergy: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface User {
@@ -117,10 +127,76 @@ function getColumnLetter(index: number): string {
   return letter;
 }
 
+let isSchemaVerified = false;
+
+export async function ensureDatabaseSchema(): Promise<void> {
+  if (!SPREADSHEET_ID) return;
+  try {
+    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const sheetTitles = spreadsheet.data.sheets?.map(s => s.properties?.title) || [];
+
+    // 1. Ensure Patients sheet exists
+    if (!sheetTitles.includes('Patients')) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: 'Patients',
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      const headers = ['hn', 'name', 'age', 'allergy', 'created_at', 'updated_at'];
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'Patients!A1:F1',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [headers],
+        },
+      });
+    }
+
+    // 2. Ensure StockOut has hn header
+    const stockOutRows = await getRawValues('StockOut!A1:Z1');
+    if (stockOutRows.length > 0) {
+      const headers = stockOutRows[0].map(h => String(h).trim());
+      if (!headers.includes('hn')) {
+        headers.push('hn');
+        const endColumnLetter = getColumnLetter(headers.length - 1);
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `StockOut!A1:${endColumnLetter}1`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: {
+            values: [headers],
+          },
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error ensuring database schema:", error);
+  }
+}
+
 /**
  * Fetch all records from a Sheet name and map rows to object fields using header row.
  */
 export async function getSheetData<T>(sheetName: string): Promise<T[]> {
+  if (!isSchemaVerified) {
+    try {
+      await ensureDatabaseSchema();
+      isSchemaVerified = true;
+    } catch (err) {
+      console.error("Schema validation failed:", err);
+    }
+  }
   const rows = await getRawValues(`${sheetName}!A1:Z5000`);
   if (rows.length === 0) return [];
 

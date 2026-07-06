@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getSheetData, appendSheetRow, updateSheetRow, StockOut, Medicine } from '@/lib/google-sheets';
+import { getSheetData, appendSheetRow, updateSheetRow, StockOut, Medicine, Patient } from '@/lib/google-sheets';
 
 function generateNextId(records: StockOut[]): string {
   if (records.length === 0) return 'OUT001';
@@ -39,6 +39,10 @@ export async function POST(request: Request) {
       requester,
       purpose,
       issued_date,
+      hn,
+      patient_name,
+      patient_age,
+      patient_allergy,
     } = body;
 
     // Validation
@@ -65,10 +69,42 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    // 2. Insert StockOut Record
+    const nowStr = new Date().toISOString();
+    
+    // 2. Handle Patient insertion / update if HN is provided
+    if (hn && hn.trim()) {
+      const patientHn = hn.trim();
+      const patients = await getSheetData<Patient>('Patients');
+      const patientExists = patients.find(p => p.hn.trim().toLowerCase() === patientHn.toLowerCase());
+      
+      const patientData = {
+        hn: patientHn,
+        name: patient_name?.trim() || '',
+        age: Number(patient_age) || 0,
+        allergy: patient_allergy?.trim() || '',
+        updated_at: nowStr,
+      };
+
+      if (patientExists) {
+        // Update details if found
+        await updateSheetRow('Patients', 'hn', patientExists.hn, {
+          name: patientData.name,
+          age: patientData.age,
+          allergy: patientData.allergy,
+          updated_at: nowStr,
+        });
+      } else {
+        // Append new patient if not found
+        await appendSheetRow('Patients', {
+          ...patientData,
+          created_at: nowStr,
+        });
+      }
+    }
+
+    // 3. Insert StockOut Record
     const stockOutRecords = await getSheetData<StockOut>('StockOut');
     const nextId = generateNextId(stockOutRecords);
-    const nowStr = new Date().toISOString();
     const creatorName = session.user.name || session.user.email || 'System';
 
     const newStockOut: StockOut = {
@@ -80,13 +116,14 @@ export async function POST(request: Request) {
       requester: requester.trim(),
       purpose: purpose?.trim() || '',
       issued_date,
+      hn: hn?.trim() || '',
       created_by: creatorName,
       created_at: nowStr,
     };
 
     await appendSheetRow('StockOut', newStockOut);
 
-    // 3. Update Medicine stock
+    // 4. Update Medicine stock
     const newStock = currentStock - qty;
     await updateSheetRow('Medicines', 'medicine_id', medicine_id, {
       current_stock: newStock,

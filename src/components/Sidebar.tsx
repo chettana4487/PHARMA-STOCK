@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   Activity,
+  Users,
 } from 'lucide-react';
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
   { name: 'นำเข้าสต็อกยา', href: '/stock-in', icon: ArrowDownLeft },
   { name: 'เบิกจ่ายยา', href: '/stock-out', icon: ArrowUpRight },
   { name: 'ประวัติธุรกรรม', href: '/history', icon: History },
+  { name: 'ประวัติผู้ป่วย', href: '/patients', icon: Users },
   { name: 'ผู้ผลิต/ผู้จัดจำหน่าย', href: '/manufacturers', icon: Factory },
 ];
 

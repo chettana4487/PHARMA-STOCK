@@ -26,13 +26,22 @@ interface Medicine {
   expire_date: string;
 }
 
+interface Patient {
+  hn: string;
+  name: string;
+  age: number;
+  allergy: string;
+}
+
 export default function StockOutPage() {
   const { data: session } = useSession();
   const router = useRouter();
 
   const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannerMode, setScannerMode] = useState<'medicine' | 'patient'>('medicine');
 
   // Form states
   const [formData, setFormData] = useState({
@@ -43,6 +52,10 @@ export default function StockOutPage() {
     requester: '',
     purpose: '',
     issued_date: new Date().toISOString().split('T')[0], // Default today
+    hn: '',
+    patient_name: '',
+    patient_age: '',
+    patient_allergy: '',
   });
 
   // Re-open scanner if needed
@@ -74,28 +87,64 @@ export default function StockOutPage() {
     }
   };
 
+  const handleScanPatientHnSuccess = (decodedBarcode: string) => {
+    setIsScannerOpen(false);
+    const code = decodedBarcode.trim();
+    
+    // Find matching patient
+    const matched = patients.find(
+      (p) => p.hn.trim().toLowerCase() === code.toLowerCase()
+    );
+
+    if (matched) {
+      setFormData((prev) => ({
+        ...prev,
+        hn: matched.hn,
+        patient_name: matched.name,
+        patient_age: String(matched.age),
+        patient_allergy: matched.allergy,
+      }));
+      toast.success(`พบข้อมูลผู้ป่วย: ${matched.name} เรียบร้อยแล้ว`);
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        hn: code,
+        patient_name: '',
+        patient_age: '',
+        patient_allergy: '',
+      }));
+      toast.success(`สแกน HN "${code}" สำเร็จ (ผู้ป่วยรายใหม่)`);
+    }
+  };
+
   const role = session?.user?.role || 'viewer';
   const isWritable = role === 'admin' || role === 'staff';
 
   async function fetchMedicines() {
     try {
       setLoading(true);
-      const res = await fetch('/api/medicines');
-      if (res.ok) {
-        const data = await res.json();
-        setMedicines(data);
-        if (data.length > 0) {
+      const [medRes, patRes] = await Promise.all([
+        fetch('/api/medicines'),
+        fetch('/api/patients'),
+      ]);
+
+      if (medRes.ok && patRes.ok) {
+        const medData = await medRes.json();
+        const patData = await patRes.json();
+        setMedicines(medData);
+        setPatients(patData);
+        if (medData.length > 0) {
           setFormData((prev) => ({
             ...prev,
-            medicine_id: data[0].medicine_id,
-            unit: data[0].unit,
+            medicine_id: medData[0].medicine_id,
+            unit: medData[0].unit,
           }));
         }
       } else {
-        toast.error('ล้มเหลวในการดึงข้อมูลยา');
+        toast.error('ล้มเหลวในการดึงข้อมูลยาหรือผู้ป่วย');
       }
     } catch (error) {
-      console.error('Error fetching medicines:', error);
+      console.error('Error fetching data:', error);
       toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล');
     } finally {
       setLoading(false);
@@ -176,9 +225,13 @@ export default function StockOutPage() {
           requester: '',
           purpose: '',
           issued_date: new Date().toISOString().split('T')[0],
+          hn: '',
+          patient_name: '',
+          patient_age: '',
+          patient_allergy: '',
         });
         
-        fetchMedicines(); // Refresh stock numbers locally
+        fetchMedicines(); // Refresh stock numbers and patients list locally
         router.refresh();
       } else {
         toast.error(result.error || 'บันทึกไม่สำเร็จ', { id: toastId });
@@ -235,7 +288,10 @@ export default function StockOutPage() {
                   <label className="block text-xs font-extrabold text-slate-400">เลือกรายการยา *</label>
                   <button
                     type="button"
-                    onClick={() => setIsScannerOpen(true)}
+                    onClick={() => {
+                      setScannerMode('medicine');
+                      setIsScannerOpen(true);
+                    }}
                     className="flex items-center gap-1.5 px-3 py-1 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-bold rounded-lg border border-rose-500/20 transition-all cursor-pointer"
                   >
                     <Camera className="w-3.5 h-3.5" />
@@ -304,6 +360,148 @@ export default function StockOutPage() {
                     value={formData.issued_date}
                     onChange={handleInputChange}
                     className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Patient Information Section */}
+            <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl space-y-4 shadow-lg">
+              <h2 className="text-base font-bold text-white tracking-wide border-b border-slate-800/80 pb-3 flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-emerald-500" />
+                  ข้อมูลผู้ป่วย (ระบุ/สแกนสติ๊กเกอร์ HN)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScannerMode('patient');
+                    setIsScannerOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-bold rounded-lg border border-emerald-500/20 transition-all cursor-pointer"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>สแกนบาร์โค้ด HN</span>
+                </button>
+              </h2>
+
+              {/* Patient Autocomplete selector */}
+              {patients.length > 0 && (
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-400 mb-1">เลือกผู้ป่วยเดิมที่มีในระบบ</label>
+                  <select
+                    value={formData.hn}
+                    onChange={(e) => {
+                      const hnVal = e.target.value;
+                      if (!hnVal) {
+                        setFormData(prev => ({
+                          ...prev,
+                          hn: '',
+                          patient_name: '',
+                          patient_age: '',
+                          patient_allergy: '',
+                        }));
+                        return;
+                      }
+                      const matched = patients.find(p => p.hn === hnVal);
+                      if (matched) {
+                        setFormData(prev => ({
+                          ...prev,
+                          hn: matched.hn,
+                          patient_name: matched.name,
+                          patient_age: String(matched.age),
+                          patient_allergy: matched.allergy,
+                        }));
+                        toast.success(`เลือกผู้ป่วย: ${matched.name}`);
+                      }
+                    }}
+                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-300 focus:outline-none focus:border-rose-500 font-bold"
+                  >
+                    <option value="">-- พิมพ์หมายเลข HN ด่านล่าง หรือเลือกผู้ป่วยเดิมที่นี่ --</option>
+                    {patients.map((pat) => (
+                      <option key={pat.hn} value={pat.hn}>
+                        [{pat.hn}] {pat.name} ({pat.allergy && pat.allergy !== 'ไม่มี' ? `⚠️ แพ้ยา: ${pat.allergy}` : 'ไม่มีประวัติแพ้ยา'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* HN */}
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-400 mb-1">หมายเลข HN *</label>
+                  <input
+                    type="text"
+                    name="hn"
+                    required
+                    placeholder="เช่น HN 1232679"
+                    value={formData.hn}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData(prev => ({ ...prev, hn: val }));
+                      
+                      // Auto lookup
+                      const matched = patients.find(p => p.hn.trim().toLowerCase() === val.trim().toLowerCase());
+                      if (matched) {
+                        setFormData(prev => ({
+                          ...prev,
+                          patient_name: matched.name,
+                          patient_age: String(matched.age),
+                          patient_allergy: matched.allergy,
+                        }));
+                        toast.success(`พบข้อมูลผู้ป่วย: ${matched.name}`);
+                      }
+                    }}
+                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500 font-bold"
+                  />
+                </div>
+
+                {/* Patient Name */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-extrabold text-slate-400 mb-1">ชื่อ-นามสกุล ผู้ป่วย *</label>
+                  <input
+                    type="text"
+                    name="patient_name"
+                    required
+                    placeholder="เช่น น.ส. พัฒน์นรี สุวรรณ"
+                    value={formData.patient_name}
+                    onChange={handleInputChange}
+                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Age */}
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-400 mb-1">อายุ (ปี) *</label>
+                  <input
+                    type="number"
+                    name="patient_age"
+                    required
+                    min="0"
+                    placeholder="เช่น 46"
+                    value={formData.patient_age}
+                    onChange={handleInputChange}
+                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500 font-bold"
+                  />
+                </div>
+
+                {/* Drug Allergy */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-extrabold text-slate-400 mb-1">ประวัติการแพ้ยา</label>
+                  <input
+                    type="text"
+                    name="patient_allergy"
+                    placeholder="ระบุตัวยาที่แพ้ หรือป้อน 'ไม่มี' / 'แพ้ยา'"
+                    value={formData.patient_allergy}
+                    onChange={handleInputChange}
+                    className={`w-full bg-slate-900 border text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none ${
+                      formData.patient_allergy && formData.patient_allergy !== 'ไม่มี'
+                        ? 'border-rose-500/50 focus:border-rose-500 text-rose-300'
+                        : 'border-slate-800 focus:border-rose-500'
+                    }`}
                   />
                 </div>
               </div>
@@ -437,7 +635,14 @@ export default function StockOutPage() {
       <BarcodeScannerModal
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
-        onScanSuccess={handleScanBarcodeSuccess}
+        onScanSuccess={(decodedBarcode) => {
+          setIsScannerOpen(false);
+          if (scannerMode === 'medicine') {
+            handleScanBarcodeSuccess(decodedBarcode);
+          } else {
+            handleScanPatientHnSuccess(decodedBarcode);
+          }
+        }}
       />
     </div>
   );
