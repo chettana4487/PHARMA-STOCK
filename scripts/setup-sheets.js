@@ -76,10 +76,13 @@ const DB_SCHEMA = {
   ],
   StockOut: [
     'stock_out_id', 'medicine_id', 'quantity', 'unit', 'department',
-    'requester', 'purpose', 'issued_date', 'created_by', 'created_at'
+    'requester', 'purpose', 'issued_date', 'created_by', 'created_at', 'hn'
   ],
   Users: [
     'user_id', 'name', 'email', 'role', 'active'
+  ],
+  Patients: [
+    'hn', 'name', 'age', 'allergy', 'created_at', 'updated_at'
   ]
 };
 
@@ -136,7 +139,7 @@ async function run() {
     }
 
     // Add remaining sheets if they don't already exist
-    const otherSheets = ['Manufacturers', 'StockIn', 'StockOut', 'Users'];
+    const otherSheets = ['Manufacturers', 'StockIn', 'StockOut', 'Users', 'Patients'];
     for (const title of otherSheets) {
       if (!existingSheetTitles.includes(title)) {
         requests.push({
