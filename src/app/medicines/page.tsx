@@ -13,7 +13,9 @@ import {
   X,
   MapPin,
   Calendar,
+  Camera,
 } from 'lucide-react';
+import BarcodeScannerModal from '@/components/BarcodeScannerModal';
 
 interface Medicine {
   medicine_id: string;
@@ -54,6 +56,12 @@ export default function MedicinesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
+  // Wizard state for registering medicine
+  const [regStep, setRegStep] = useState<1 | 2>(1);
+  const [barcodeQuery, setBarcodeQuery] = useState('');
+  const [existingMatch, setExistingMatch] = useState<Medicine | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+
   // Form states
   const [activeMedicine, setActiveMedicine] = useState<Medicine | null>(null);
   const [formData, setFormData] = useState({
@@ -67,6 +75,15 @@ export default function MedicinesPage() {
     expire_date: '',
     note: '',
   });
+
+  // Listener to re-open scanner if there is a retry trigger from inside
+  useEffect(() => {
+    const handleReopen = () => {
+      setIsScannerOpen(true);
+    };
+    window.addEventListener('reopen-scanner', handleReopen);
+    return () => window.removeEventListener('reopen-scanner', handleReopen);
+  }, []);
 
   const role = session?.user?.role || 'viewer';
   const isEditable = role === 'admin' || role === 'staff';
@@ -130,6 +147,9 @@ export default function MedicinesPage() {
   };
 
   const openAddModal = () => {
+    setBarcodeQuery('');
+    setExistingMatch(null);
+    setRegStep(1);
     setFormData({
       medicine_code: '',
       medicine_name: '',
@@ -144,6 +164,50 @@ export default function MedicinesPage() {
     setIsAddModalOpen(true);
   };
 
+  const handleVerifyBarcode = (codeToVerify: string) => {
+    const code = codeToVerify.trim();
+    if (!code) {
+      toast.error('กรุณาระบุรหัสยาหรือสแกนบาร์โค้ด');
+      return;
+    }
+
+    const matched = medicines.find(
+      (m) => m.medicine_code.trim().toLowerCase() === code.toLowerCase()
+    );
+
+    if (matched) {
+      setExistingMatch(matched);
+      setFormData({
+        medicine_code: matched.medicine_code,
+        medicine_name: matched.medicine_name,
+        category: matched.category,
+        unit: matched.unit,
+        manufacturer_id: matched.manufacturer_id,
+        min_stock: Number(matched.min_stock) || 0,
+        location: matched.location,
+        expire_date: matched.expire_date ? matched.expire_date.split('T')[0] : '',
+        note: matched.note,
+      });
+      setRegStep(2);
+      toast.success('พบข้อมูลยารหัสนี้ในระบบ คุณสามารถระบุหรือแก้ไขข้อมูลเพิ่มเติมได้');
+    } else {
+      setExistingMatch(null);
+      setFormData({
+        medicine_code: code,
+        medicine_name: '',
+        category: '',
+        unit: '',
+        manufacturer_id: manufacturers[0]?.manufacturer_id || '',
+        min_stock: 10,
+        location: '',
+        expire_date: '',
+        note: '',
+      });
+      setRegStep(2);
+      toast.success('ไม่พบรหัสยานี้ในระบบ คุณสามารถใส่ข้อมูลด้วยตนเองเพื่อลงทะเบียนใหม่ได้');
+    }
+  };
+
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.medicine_code || !formData.medicine_name || !formData.category || !formData.unit || !formData.manufacturer_id) {
@@ -153,22 +217,31 @@ export default function MedicinesPage() {
 
     const toastId = toast.loading('กำลังบันทึกข้อมูล...');
     try {
-      const res = await fetch('/api/medicines', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
+      let res;
+      if (existingMatch) {
+        res = await fetch(`/api/medicines/${existingMatch.medicine_id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+      } else {
+        res = await fetch('/api/medicines', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+      }
 
       const result = await res.json();
       if (res.ok) {
-        toast.success('เพิ่มข้อมูลยาเรียบร้อยแล้ว', { id: toastId });
+        toast.success(existingMatch ? 'ปรับปรุงข้อมูลยาเรียบร้อยแล้ว' : 'ลงทะเบียนยาใหม่เรียบร้อยแล้ว', { id: toastId });
         setIsAddModalOpen(false);
         fetchData();
       } else {
-        toast.error(result.error || 'ล้มเหลวในการสร้างรายการยา', { id: toastId });
+        toast.error(result.error || 'ล้มเหลวในการบันทึกรายการยา', { id: toastId });
       }
     } catch (error) {
-      console.error('Error adding medicine:', error);
+      console.error('Error saving medicine:', error);
       toast.error('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', { id: toastId });
     }
   };
@@ -590,148 +663,237 @@ export default function MedicinesPage() {
               </button>
             </div>
 
-            <form onSubmit={handleAddSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Code */}
+            {regStep === 1 ? (
+              <div className="p-6 space-y-6 flex flex-col items-center">
+                <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                  <Pill className="w-8 h-8" />
+                </div>
+                <div className="text-center max-w-md">
+                  <h4 className="text-base font-bold text-white">ขั้นตอนที่ 1: ระบุรหัสหรือสแกนบาร์โค้ดยา</h4>
+                  <p className="text-xs text-slate-400 mt-2">
+                    กรุณาระบุรหัสสินค้า/บาร์โค้ดที่อยู่บนตัวยา เพื่อให้ระบบค้นหาประวัติก่อนว่ามียานี้ในฐานข้อมูลแล้วหรือไม่
+                  </p>
+                </div>
+
+                <div className="w-full max-w-md space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                      รหัสยา / บาร์โค้ดสินค้า (Medicine Code / Barcode)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="พิมพ์รหัสยาหรือเลขบาร์โค้ด..."
+                        value={barcodeQuery}
+                        onChange={(e) => setBarcodeQuery(e.target.value)}
+                        className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-bold"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleVerifyBarcode(barcodeQuery);
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsScannerOpen(true)}
+                        className="flex items-center justify-center gap-1.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shrink-0"
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>สแกนกล้อง</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddModalOpen(false)}
+                      className="w-1/2 py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl transition-colors"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!barcodeQuery.trim()}
+                      onClick={() => handleVerifyBarcode(barcodeQuery)}
+                      className="w-1/2 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                    >
+                      ตรวจสอบข้อมูล
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleAddSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
+                {/* Banner Status */}
+                {existingMatch ? (
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex flex-col gap-1 leading-relaxed">
+                    <span className="font-bold flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4" />
+                      พบข้อมูลยานี้ในคลังแล้ว (รหัส: {formData.medicine_code})
+                    </span>
+                    <span>ระบบได้นำข้อมูลที่มีอยู่ในคลังขึ้นมาแสดง คุณสามารถตรวจสอบรายละเอียดและแก้ไข/ระบุข้อมูลเพิ่มเติมของยาได้ที่ฟอร์มด้านล่างนี้</span>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs flex flex-col gap-1 leading-relaxed">
+                    <span className="font-bold flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4" />
+                      ไม่พบข้อมูลยานี้ในคลัง (รหัสใหม่: {formData.medicine_code})
+                    </span>
+                    <span>กรุณากรอกรายละเอียดของเวชภัณฑ์ยาด้านล่างเพื่อลงทะเบียนยาใหม่เข้าระบบ</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Code (Read-Only) */}
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-400 mb-1">รหัสยา (Medicine Code)</label>
+                    <input
+                      type="text"
+                      name="medicine_code"
+                      disabled
+                      value={formData.medicine_code}
+                      className="w-full bg-slate-900/60 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-400 font-bold focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Name */}
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-400 mb-1">ชื่อยา (Medicine Name) *</label>
+                    <input
+                      type="text"
+                      name="medicine_name"
+                      required
+                      placeholder="เช่น Paracetamol 500mg"
+                      value={formData.medicine_name}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Category */}
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-400 mb-1">หมวดหมู่ยา *</label>
+                    <input
+                      type="text"
+                      name="category"
+                      required
+                      placeholder="เช่น ยาแก้ปวด, ยาฆ่าเชื้อ"
+                      value={formData.category}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Unit */}
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-400 mb-1">หน่วยนับ *</label>
+                    <input
+                      type="text"
+                      name="unit"
+                      required
+                      placeholder="เช่น เม็ด, ขวด, หลอด"
+                      value={formData.unit}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Manufacturer Selection */}
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-400 mb-1">ผู้ผลิต / ผู้จัดจำหน่าย *</label>
+                    <select
+                      name="manufacturer_id"
+                      value={formData.manufacturer_id}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500"
+                    >
+                      {manufacturers.map((man) => (
+                        <option key={man.manufacturer_id} value={man.manufacturer_id}>
+                          {man.manufacturer_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Min Stock */}
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-400 mb-1">จำนวนขั้นต่ำเตือนภัย (Min Stock)</label>
+                    <input
+                      type="number"
+                      name="min_stock"
+                      min="0"
+                      value={formData.min_stock}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Location */}
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-400 mb-1">ตำแหน่งจัดเก็บ (Location)</label>
+                    <input
+                      type="text"
+                      name="location"
+                      placeholder="เช่น ตู้ A ชั้น 3, ห้องยาเย็น"
+                      value={formData.location}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Expiration date */}
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-400 mb-1">วันหมดอายุตั้งต้น (ถ้ามี)</label>
+                    <input
+                      type="date"
+                      name="expire_date"
+                      value={formData.expire_date}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Note */}
                 <div>
-                  <label className="block text-xs font-extrabold text-slate-400 mb-1">รหัสยา (Medicine Code) *</label>
-                  <input
-                    type="text"
-                    name="medicine_code"
-                    required
-                    placeholder="เช่น PARA500"
-                    value={formData.medicine_code}
+                  <label className="block text-xs font-extrabold text-slate-400 mb-1">บันทึกเพิ่มเติม</label>
+                  <textarea
+                    name="note"
+                    rows={3}
+                    value={formData.note}
                     onChange={handleInputChange}
-                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
 
-                {/* Name */}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-400 mb-1">ชื่อยา (Medicine Name) *</label>
-                  <input
-                    type="text"
-                    name="medicine_name"
-                    required
-                    placeholder="เช่น Paracetamol 500mg"
-                    value={formData.medicine_name}
-                    onChange={handleInputChange}
-                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                {/* Category */}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-400 mb-1">หมวดหมู่ยา *</label>
-                  <input
-                    type="text"
-                    name="category"
-                    required
-                    placeholder="เช่น ยาแก้ปวด, ยาฆ่าเชื้อ"
-                    value={formData.category}
-                    onChange={handleInputChange}
-                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                {/* Unit */}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-400 mb-1">หน่วยนับ *</label>
-                  <input
-                    type="text"
-                    name="unit"
-                    required
-                    placeholder="เช่น เม็ด, ขวด, หลอด"
-                    value={formData.unit}
-                    onChange={handleInputChange}
-                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                {/* Manufacturer Selection */}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-400 mb-1">ผู้ผลิต / ผู้จัดจำหน่าย *</label>
-                  <select
-                    name="manufacturer_id"
-                    value={formData.manufacturer_id}
-                    onChange={handleInputChange}
-                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500"
+                <div className="flex justify-between items-center pt-4 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setRegStep(1)}
+                    className="px-5 py-2 text-sm bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-350 rounded-xl"
                   >
-                    {manufacturers.map((man) => (
-                      <option key={man.manufacturer_id} value={man.manufacturer_id}>
-                        {man.manufacturer_name}
-                      </option>
-                    ))}
-                  </select>
+                    ย้อนกลับ
+                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddModalOpen(false)}
+                      className="px-5 py-2 text-sm bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl cursor-pointer"
+                    >
+                      {existingMatch ? 'อัปเดตข้อมูลยา' : 'ลงทะเบียนยา'}
+                    </button>
+                  </div>
                 </div>
-
-                {/* Min Stock */}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-400 mb-1">จำนวนขั้นต่ำเตือนภัย (Min Stock)</label>
-                  <input
-                    type="number"
-                    name="min_stock"
-                    min="0"
-                    value={formData.min_stock}
-                    onChange={handleInputChange}
-                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                {/* Location */}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-400 mb-1">ตำแหน่งจัดเก็บ (Location)</label>
-                  <input
-                    type="text"
-                    name="location"
-                    placeholder="เช่น ตู้ A ชั้น 3, ห้องยาเย็น"
-                    value={formData.location}
-                    onChange={handleInputChange}
-                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                {/* Expiration date */}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-400 mb-1">วันหมดอายุตั้งต้น (ถ้ามี)</label>
-                  <input
-                    type="date"
-                    name="expire_date"
-                    value={formData.expire_date}
-                    onChange={handleInputChange}
-                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-
-              {/* Note */}
-              <div>
-                <label className="block text-xs font-extrabold text-slate-400 mb-1">บันทึกเพิ่มเติม</label>
-                <textarea
-                  name="note"
-                  rows={3}
-                  value={formData.note}
-                  onChange={handleInputChange}
-                  className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-5 py-2 text-sm bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl"
-                >
-                  บันทึกรายการ
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -922,6 +1084,17 @@ export default function MedicinesPage() {
           </div>
         </div>
       )}
+
+      {/* Barcode Scanner Modal component */}
+      <BarcodeScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={(decodedBarcode) => {
+          setIsScannerOpen(false);
+          setBarcodeQuery(decodedBarcode);
+          handleVerifyBarcode(decodedBarcode);
+        }}
+      />
     </div>
   );
 }

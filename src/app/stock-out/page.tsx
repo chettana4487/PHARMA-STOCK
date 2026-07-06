@@ -11,7 +11,9 @@ import {
   UserCheck,
   ClipboardList,
   Minus,
+  Camera,
 } from 'lucide-react';
+import BarcodeScannerModal from '@/components/BarcodeScannerModal';
 
 interface Medicine {
   medicine_id: string;
@@ -30,6 +32,7 @@ export default function StockOutPage() {
 
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -41,6 +44,35 @@ export default function StockOutPage() {
     purpose: '',
     issued_date: new Date().toISOString().split('T')[0], // Default today
   });
+
+  // Re-open scanner if needed
+  useEffect(() => {
+    const handleReopen = () => {
+      setIsScannerOpen(true);
+    };
+    window.addEventListener('reopen-scanner', handleReopen);
+    return () => window.removeEventListener('reopen-scanner', handleReopen);
+  }, []);
+
+  const handleScanBarcodeSuccess = (decodedBarcode: string) => {
+    setIsScannerOpen(false);
+    
+    const code = decodedBarcode.trim().toLowerCase();
+    const matched = medicines.find(
+      (m) => m.medicine_code.trim().toLowerCase() === code
+    );
+    
+    if (matched) {
+      setFormData((prev) => ({
+        ...prev,
+        medicine_id: matched.medicine_id,
+        unit: matched.unit,
+      }));
+      toast.success(`เลือกยา: [${matched.medicine_code}] ${matched.medicine_name} สำเร็จ`);
+    } else {
+      toast.error(`ไม่พบรหัสยา/บาร์โค้ด "${decodedBarcode}" ในระบบ`);
+    }
+  };
 
   const role = session?.user?.role || 'viewer';
   const isWritable = role === 'admin' || role === 'staff';
@@ -199,7 +231,17 @@ export default function StockOutPage() {
 
               {/* Medicine Select */}
               <div>
-                <label className="block text-xs font-extrabold text-slate-400 mb-1">เลือกรายการยา *</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-extrabold text-slate-400">เลือกรายการยา *</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsScannerOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-bold rounded-lg border border-rose-500/20 transition-all cursor-pointer"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>สแกนบาร์โค้ดเพื่อเลือก</span>
+                  </button>
+                </div>
                 <select
                   name="medicine_id"
                   value={formData.medicine_id}
@@ -390,6 +432,13 @@ export default function StockOutPage() {
           </div>
         </form>
       )}
+
+      {/* Barcode Scanner Modal component */}
+      <BarcodeScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={handleScanBarcodeSuccess}
+      />
     </div>
   );
 }
