@@ -226,7 +226,7 @@ const stockIn = stockInRaw.map((item, index) => {
   ];
 });
 
-// 5. StockOut Transactions (300 entries)
+// 5. StockOut Transactions (multi-item grouped, total target ~300 entries grouped by 1-10 items per transaction)
 const departments = [
   'แผนกผู้ป่วยนอก (OPD)',
   'แผนกผู้ป่วยใน (IPD)',
@@ -245,9 +245,10 @@ const purposes = [
 ];
 
 const stockOutRaw = [];
-for (let i = 1; i <= 300; i++) {
-  const med = medicineTemplatesForTx[Math.floor(Math.random() * medicineTemplatesForTx.length)];
-  const quantity = Math.floor(Math.random() * 15) * 5 + 10; // 10 to 80
+let slipCounter = 1;
+
+// We will generate about 300 stock out rows in total
+while (stockOutRaw.length < 300) {
   const dept = departments[Math.floor(Math.random() * departments.length)];
   const requester = doctors[Math.floor(Math.random() * doctors.length)];
   const purpose = purposes[Math.floor(Math.random() * purposes.length)];
@@ -257,39 +258,88 @@ for (let i = 1; i <= 300; i++) {
   const patient = hasPatient ? patients[Math.floor(Math.random() * patients.length)] : null;
   const hn = patient ? patient[0] : '';
 
-  stockOutRaw.push({
-    medId: med.medicine_id,
-    quantity,
-    unit: med.unit,
-    dept,
-    requester,
-    purpose,
-    randDate,
-    creator,
-    hn
-  });
+  // Decide 1-10 items per transaction
+  const numItems = Math.floor(Math.random() * 10) + 1;
+  const selectedMedIds = new Set();
+
+  for (let j = 1; j <= numItems; j++) {
+    if (stockOutRaw.length >= 300) break;
+
+    // Pick a unique medicine for this slip
+    let med = null;
+    let attempts = 0;
+    while (attempts < 50) {
+      const candidate = medicineTemplatesForTx[Math.floor(Math.random() * medicineTemplatesForTx.length)];
+      if (!selectedMedIds.has(candidate.medicine_id)) {
+        med = candidate;
+        selectedMedIds.add(candidate.medicine_id);
+        break;
+      }
+      attempts++;
+    }
+
+    if (!med) {
+      med = medicineTemplatesForTx[Math.floor(Math.random() * medicineTemplatesForTx.length)];
+    }
+
+    const quantity = Math.floor(Math.random() * 15) * 5 + 10; // 10 to 80
+
+    stockOutRaw.push({
+      slipIndex: slipCounter,
+      medId: med.medicine_id,
+      quantity,
+      unit: med.unit,
+      dept,
+      requester,
+      purpose,
+      randDate,
+      creator,
+      hn
+    });
+  }
+
+  slipCounter++;
 }
 
-// Sort StockOut records chronologically
-stockOutRaw.sort((a, b) => a.randDate - b.randDate);
+// Group items in stockOutRaw by slipIndex
+const itemsBySlip = {};
+stockOutRaw.forEach((item) => {
+  if (!itemsBySlip[item.slipIndex]) {
+    itemsBySlip[item.slipIndex] = [];
+  }
+  itemsBySlip[item.slipIndex].push(item);
+});
 
-const stockOut = stockOutRaw.map((item, index) => {
-  const outId = `OUT${String(index + 1).padStart(3, '0')}`;
-  const issuedDate = item.randDate.toISOString().split('T')[0];
-  const createdAt = item.randDate.toISOString();
-  return [
-    outId,
-    item.medId,
-    String(item.quantity),
-    item.unit,
-    item.dept,
-    item.requester,
-    item.purpose,
-    issuedDate,
-    item.creator,
-    createdAt,
-    item.hn
-  ];
+// Sort slips chronologically based on first item's date
+const sortedSlips = Object.keys(itemsBySlip).sort((a, b) => {
+  return itemsBySlip[a][0].randDate - itemsBySlip[b][0].randDate;
+});
+
+const stockOut = [];
+sortedSlips.forEach((slipIdx, seqNo) => {
+  const baseOutId = `OUT${String(seqNo + 1).padStart(3, '0')}`;
+  const slipItems = itemsBySlip[slipIdx];
+
+  slipItems.forEach((item, itemIdx) => {
+    // Suffix format matching the multi-item structure: OUT001-1, OUT001-2, etc.
+    const outId = `${baseOutId}-${itemIdx + 1}`;
+    const issuedDate = item.randDate.toISOString().split('T')[0];
+    const createdAt = item.randDate.toISOString();
+
+    stockOut.push([
+      outId,
+      item.medId,
+      String(item.quantity),
+      item.unit,
+      item.dept,
+      item.requester,
+      item.purpose,
+      issuedDate,
+      item.creator,
+      createdAt,
+      item.hn
+    ]);
+  });
 });
 
 async function seed() {
