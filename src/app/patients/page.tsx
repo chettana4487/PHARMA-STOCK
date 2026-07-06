@@ -432,14 +432,15 @@ export default function PatientsPage() {
                           <th className="py-3 px-5">ชื่อยา / รหัส</th>
                           <th className="py-3 px-5 text-right">จำนวน</th>
                           <th className="py-3 px-5">แผนกผู้เบิก</th>
-                          <th className="py-3 px-5">เจ้าหน้าที่รับผิดชอบ</th>
+                          <th className="py-3 px-5">ผู้เบิกยา (เจ้าหน้าที่)</th>
+                          <th className="py-3 px-5">ผู้บันทึก (LOG IN)</th>
                           <th className="py-3 px-5">วัตถุประสงค์</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/40 text-xs">
                         {paginatedHistoryTransactions.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="py-12 px-5 text-center text-slate-500 font-medium">
+                            <td colSpan={7} className="py-12 px-5 text-center text-slate-500 font-medium">
                               ไม่มีประวัติการเบิกจ่ายยาระบุถึงผู้ป่วยรายนี้
                             </td>
                           </tr>
@@ -470,7 +471,10 @@ export default function PatientsPage() {
                                 </span>
                               </td>
                               <td className="py-3.5 px-5 text-slate-400 font-medium">
-                                {tx.document_no}
+                                {tx.document_no || 'ไม่ระบุ'}
+                              </td>
+                              <td className="py-3.5 px-5 text-slate-400 font-medium">
+                                {tx.operator || 'ไม่ระบุ'}
                               </td>
                               <td className="py-3.5 px-5 text-slate-400 text-[11px] truncate max-w-[150px]" title={tx.note_or_purpose}>
                                 {tx.note_or_purpose || '-'}
@@ -511,9 +515,15 @@ export default function PatientsPage() {
                               <span className="text-slate-300 block mt-0.5">{tx.supplier_or_dept}</span>
                             </div>
                             <div className="col-span-2 pt-1 border-t border-slate-950/20">
-                              <span className="text-slate-500 block font-semibold">เจ้าหน้าที่รับผิดชอบ / วัตถุประสงค์</span>
+                              <span className="text-slate-500 block font-semibold">ผู้เบิก / ผู้บันทึก (LOG IN)</span>
+                              <span className="text-slate-400 block mt-0.5 leading-normal font-medium">
+                                ผู้เบิก: {tx.document_no || 'ไม่ระบุ'} • ผู้บันทึก: {tx.operator || 'ไม่ระบุ'}
+                              </span>
+                            </div>
+                            <div className="col-span-2 pt-1 border-t border-slate-950/20">
+                              <span className="text-slate-500 block font-semibold">วัตถุประสงค์</span>
                               <span className="text-slate-400 block mt-0.5 leading-normal">
-                                {tx.document_no} {tx.note_or_purpose ? `(${tx.note_or_purpose})` : ''}
+                                {tx.note_or_purpose || '-'}
                               </span>
                             </div>
                           </div>

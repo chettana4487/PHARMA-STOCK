@@ -331,7 +331,7 @@ export default function HistoryPage() {
                   <th className="py-4 px-6">ผู้ขาย / แผนกผู้เบิก</th>
                   <th className="py-4 px-6">ผู้เบิก / คนไข้</th>
                   <th className="py-4 px-6">วันบันทึกรายการ</th>
-                  <th className="py-4 px-6">ผู้ทำรายการ</th>
+                  <th className="py-4 px-6">ผู้บันทึก (LOG IN)</th>
                   <th className="py-4 px-6 text-center">ไฟล์อ้างอิง</th>
                 </tr>
               </thead>
@@ -501,7 +501,7 @@ export default function HistoryPage() {
                     )}
 
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ผู้ทำรายการ</span>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ผู้บันทึก (LOG IN)</span>
                       <span className="text-slate-300 text-xs mt-1 font-semibold flex items-center gap-1">
                         <User className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                         {t.operator || 'ไม่ระบุ'}
