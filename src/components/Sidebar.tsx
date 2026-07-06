@@ -44,13 +44,12 @@ export default function Sidebar() {
     document.documentElement.classList.add(storedTheme);
   }, []);
 
-  const toggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    localStorage.setItem('theme', nextTheme);
+  const changeTheme = (targetTheme: 'light' | 'dark') => {
+    setTheme(targetTheme);
+    localStorage.setItem('theme', targetTheme);
     document.documentElement.classList.remove('light', 'dark');
-    document.documentElement.classList.add(nextTheme);
-    toast.success(`เปลี่ยนโหมดเป็น: ${nextTheme === 'dark' ? 'มืด (Dark)' : 'สว่าง (Light)'}`);
+    document.documentElement.classList.add(targetTheme);
+    toast.success(`เปลี่ยนโหมดเป็น: ${targetTheme === 'dark' ? 'มืด (Dark)' : 'สว่าง (Light)'}`);
   };
 
   const role = session?.user?.role || 'viewer';
@@ -173,28 +172,33 @@ export default function Sidebar() {
             </div>
           )}
 
-          {/* Theme Selector Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-900/60 border border-slate-800/80 hover:bg-slate-900 text-slate-400 hover:text-slate-200 transition-all duration-200 mb-3 cursor-pointer"
-          >
-            <span className="flex items-center gap-2">
-              {theme === 'dark' ? (
-                <>
-                  <Moon className="w-4 h-4 text-emerald-400" />
-                  <span>โหมดมืด (Dark Theme)</span>
-                </>
-              ) : (
-                <>
-                  <Sun className="w-4 h-4 text-amber-500" />
-                  <span>โหมดสว่าง (Light Theme)</span>
-                </>
-              )}
-            </span>
-            <span className="text-[10px] text-slate-500 uppercase tracking-widest font-extrabold bg-slate-950 px-2 py-0.5 rounded border border-slate-900">
-              {theme === 'dark' ? 'Dark' : 'Light'}
-            </span>
-          </button>
+          {/* Theme Selector Segment Control */}
+          <div className="flex bg-slate-900/60 border border-slate-800/80 p-1 rounded-xl mb-3">
+            <button
+              type="button"
+              onClick={() => { if (theme !== 'light') changeTheme('light'); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-extrabold transition-all duration-205 cursor-pointer ${
+                theme === 'light'
+                  ? 'bg-white text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Sun className="w-3.5 h-3.5" />
+              <span>โหมดสว่าง</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (theme !== 'dark') changeTheme('dark'); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-extrabold transition-all duration-205 cursor-pointer ${
+                theme === 'dark'
+                  ? 'bg-slate-800/90 text-emerald-400 shadow-sm border border-slate-700/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Moon className="w-3.5 h-3.5" />
+              <span>โหมดมืด</span>
+            </button>
+          </div>
 
           <button
             onClick={() => signOut()}
