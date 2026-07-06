@@ -133,7 +133,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Card 1: Total Medicines */}
         <div className="bg-slate-950/40 backdrop-blur-sm border border-slate-800 p-6 rounded-3xl shadow-lg relative overflow-hidden group hover:border-slate-700/50 transition-all duration-300">
-          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-300">
+          <div className="absolute top-0 right-0 p-8 card-watermark-icon group-hover:scale-110 transition-transform duration-300">
             <Pill className="w-24 h-24 text-emerald-400" />
           </div>
           <div className="flex items-center gap-4 mb-4">
@@ -150,7 +150,7 @@ export default function DashboardPage() {
 
         {/* Card 2: Low Stock Warning */}
         <div className="bg-slate-950/40 backdrop-blur-sm border border-slate-800 p-6 rounded-3xl shadow-lg relative overflow-hidden group hover:border-slate-700/50 transition-all duration-300">
-          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-300">
+          <div className="absolute top-0 right-0 p-8 card-watermark-icon group-hover:scale-110 transition-transform duration-300">
             <AlertTriangle className="w-24 h-24 text-amber-400" />
           </div>
           <div className="flex items-center gap-4 mb-4">
@@ -171,7 +171,7 @@ export default function DashboardPage() {
 
         {/* Card 3: Expired / Expiring Soon */}
         <div className="bg-slate-950/40 backdrop-blur-sm border border-slate-800 p-6 rounded-3xl shadow-lg relative overflow-hidden group hover:border-slate-700/50 transition-all duration-300 md:col-span-1">
-          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-300">
+          <div className="absolute top-0 right-0 p-8 card-watermark-icon group-hover:scale-110 transition-transform duration-300">
             <Calendar className="w-24 h-24 text-rose-400" />
           </div>
           <div className="flex items-center gap-4 mb-4">
@@ -200,7 +200,7 @@ export default function DashboardPage() {
 
         {/* Card 4: Operation Activity */}
         <div className="bg-slate-950/40 backdrop-blur-sm border border-slate-800 p-6 rounded-3xl shadow-lg relative overflow-hidden group hover:border-slate-700/50 transition-all duration-300">
-          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-300">
+          <div className="absolute top-0 right-0 p-8 card-watermark-icon group-hover:scale-110 transition-transform duration-300">
             <Activity className="w-24 h-24 text-teal-400" />
           </div>
           <div className="flex items-center gap-4 mb-4">

@@ -20,6 +20,7 @@ import {
   Sun,
   Moon,
   BarChart3,
+  FileText,
 } from 'lucide-react';
 
 const navItems = [
@@ -28,6 +29,7 @@ const navItems = [
   { name: 'นำเข้าสต็อกยา', href: '/stock-in', icon: ArrowDownLeft },
   { name: 'เบิกจ่ายยา', href: '/stock-out', icon: ArrowUpRight },
   { name: 'ประวัติธุรกรรม', href: '/history', icon: History },
+  { name: 'รายงานเดินคลัง', href: '/reports', icon: FileText },
   { name: 'ประวัติผู้ป่วย', href: '/patients', icon: Users },
   { name: 'วิเคราะห์คลังยา', href: '/analytics', icon: BarChart3 },
   { name: 'ผู้ผลิต/ผู้จัดจำหน่าย', href: '/manufacturers', icon: Factory },
@@ -72,7 +74,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="lg:hidden flex items-center justify-between bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-40">
+      <div className="lg:hidden flex items-center justify-between bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-40 print:hidden">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white">
             <Activity className="w-5 h-5" />
@@ -90,14 +92,14 @@ export default function Sidebar() {
       {/* Sidebar Overlay for Mobile */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-30 lg:hidden backdrop-blur-sm"
+          className="fixed inset-0 bg-black/60 z-30 lg:hidden backdrop-blur-sm print:hidden"
           onClick={toggleSidebar}
         />
       )}
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-30 w-64 bg-slate-950 border-r border-slate-800/80 flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen pt-[57px] lg:pt-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-30 w-64 bg-slate-950 border-r border-slate-800/80 flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen pt-[57px] lg:pt-0 print:hidden ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

@@ -15,7 +15,9 @@ import {
   Clock,
   BriefcaseMedical,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Printer,
+  FileSpreadsheet
 } from 'lucide-react';
 
 interface Patient {
@@ -91,6 +93,172 @@ export default function PatientsPage() {
     fetchData();
   }, []);
 
+  // Export Individual Patient Drug History to Excel
+  const handleExportPatientExcel = () => {
+    if (!activePatient) return;
+    
+    const sheetName = 'ประวัติรับยาผู้ป่วย';
+    const reportTitle = 'รายงานประวัติการรับยาผู้ป่วยรายบุคคล';
+    const subTitle = 'ระบบบริหารจัดการยาและคลังเวชภัณฑ์ (Central Pharmacy Stock)';
+    
+    // Prepare HTML content for Excel
+    const tableHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>${sheetName}</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          table { border-collapse: collapse; font-family: 'Segoe UI', Tahoma, sans-serif; }
+          .title { font-size: 14px; font-weight: bold; color: #0f172a; }
+          .subtitle { font-size: 10px; color: #475569; }
+          .meta-box { border: 1px solid #cbd5e1; background-color: #f8fafc; font-size: 10px; }
+          .meta-label { font-weight: bold; color: #475569; }
+          .meta-val { color: #0f172a; font-weight: bold; }
+          .allergy-warn { background-color: #fdf2f2; color: #b91c1c; font-weight: bold; font-size: 10px; border: 1px solid #fecaca; }
+          th { background-color: #0f172a; color: #ffffff; font-weight: bold; font-size: 11px; border: 1px solid #94a3b8; text-align: center; }
+          td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 10px; }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .zebra { background-color: #f8fafc; }
+          .signature-label { font-weight: bold; color: #334155; font-size: 11px; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <tr>
+            <td colspan="6" class="title">${reportTitle}</td>
+          </tr>
+          <tr>
+            <td colspan="6" class="subtitle">${subTitle}</td>
+          </tr>
+          <tr><td colspan="6" style="border:none;"></td></tr>
+
+          <!-- Patient Meta Information -->
+          <tr class="meta-box">
+            <td class="meta-label">ชื่อผู้ป่วย:</td>
+            <td class="meta-val">${activePatient.name}</td>
+            <td class="meta-label">หมายเลข HN:</td>
+            <td class="meta-val" style="mso-number-format:'\\@';">${activePatient.hn}</td>
+            <td class="meta-label">อายุ:</td>
+            <td class="meta-val">${activePatient.age} ปี</td>
+          </tr>
+          ${activePatient.allergy && activePatient.allergy.trim() !== 'ไม่มี' ? `
+            <tr class="allergy-warn">
+              <td class="meta-label">ประวัติแพ้ยา:</td>
+              <td colspan="5">${activePatient.allergy}</td>
+            </tr>
+          ` : ''}
+          <tr>
+            <td class="meta-label" style="font-size:9px; color:#64748b;">ผู้จัดพิมพ์:</td>
+            <td colspan="2" style="font-size:9px; color:#0f172a;">${session?.user?.name || 'เจ้าหน้าที่คลังยา'}</td>
+            <td class="meta-label" style="font-size:9px; color:#64748b;">วันที่พิมพ์:</td>
+            <td colspan="2" style="font-size:9px; color:#0f172a;">${new Date().toLocaleDateString('th-TH')}</td>
+          </tr>
+
+          <tr><td colspan="6" style="border:none;"></td></tr>
+
+          <!-- Table Header -->
+          <thead>
+            <tr>
+              <th style="width: 120px;">วันที่รับยา</th>
+              <th style="width: 100px;">รหัสยา</th>
+              <th style="width: 250px;">ชื่อเวชภัณฑ์ยา</th>
+              <th style="width: 80px; text-align: right;">จำนวน</th>
+              <th style="width: 60px;">หน่วย</th>
+              <th style="width: 180px;">แผนกผู้รับเบิก</th>
+            </tr>
+          </thead>
+          
+          <!-- Table Body -->
+          <tbody>
+            ${activePatientTransactions.length === 0 ? `
+              <tr>
+                <td colspan="6" class="text-center" style="color: #64748b;">ไม่มีประวัติการเบิกจ่ายยาระบุถึงผู้ป่วยรายนี้</td>
+              </tr>
+            ` : activePatientTransactions.map((tx, idx) => `
+              <tr class="${idx % 2 === 0 ? '' : 'zebra'}">
+                <td class="text-center">
+                  ${new Date(tx.date).toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </td>
+                <td class="text-center" style="mso-number-format:'\\@';">${tx.medicine_code}</td>
+                <td style="font-weight: bold;">${tx.medicine_name}</td>
+                <td class="text-right" style="font-weight: bold;">${tx.quantity.toLocaleString()}</td>
+                <td class="text-center">${tx.unit}</td>
+                <td>${tx.supplier_or_dept || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+
+          <tr><td colspan="6" style="border:none;"></td></tr>
+          <tr><td colspan="6" style="border:none;"></td></tr>
+
+          <!-- Signatures Block -->
+          <tr>
+            <td colspan="3" class="text-center signature-label" style="border:none; border-top:1px dashed #cbd5e1; padding-top:15px;">
+              ผู้รายงาน / ผู้จัดทำเอกสาร
+            </td>
+            <td colspan="3" class="text-center signature-label" style="border:none; border-top:1px dashed #cbd5e1; padding-top:15px;">
+              ผู้สอบทาน / หัวหน้าแผนก
+            </td>
+          </tr>
+          <tr>
+            <td colspan="3" class="text-center" style="border:none; height: 50px; vertical-align: bottom;">
+              ลงชื่อ ........................................................................
+            </td>
+            <td colspan="3" class="text-center" style="border:none; height: 50px; vertical-align: bottom;">
+              ลงชื่อ ........................................................................
+            </td>
+          </tr>
+          <tr>
+            <td colspan="3" class="text-center" style="border:none; font-weight: bold;">
+              ( ${session?.user?.name || '...........................................'} )
+            </td>
+            <td colspan="3" class="text-center" style="border:none;">
+              ( ........................................................................ )
+            </td>
+          </tr>
+          <tr>
+            <td colspan="3" class="text-center" style="border:none; font-size: 9px; color: #64748b;">
+              ตำแหน่ง เจ้าหน้าที่บันทึกจ่ายเวชภัณฑ์ยา
+            </td>
+            <td colspan="3" class="text-center" style="border:none; font-size: 9px; color: #64748b;">
+              ตำแหน่ง หัวหน้างานเภสัชกรรมคลังกลาง
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `ประวัติรับยา_${activePatient.name}_${new Date().toISOString().split('T')[0]}.xls`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('ส่งออกไฟล์ Excel สำเร็จ');
+  };
+
   // Reset pagination on search
   useEffect(() => {
     setCurrentPage(1);
@@ -151,7 +319,122 @@ export default function PatientsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header Panel */}
+      {/* Dynamic Printing Style Block */}
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: A4;
+            margin: 1.2cm;
+          }
+          /* Hide all screen-only elements */
+          .no-print,
+          aside,
+          header,
+          button,
+          nav,
+          .modal-screen {
+            display: none !important;
+          }
+
+          /* Force body default light scheme and occupy full screen page width */
+          body {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            font-family: 'Sarabun', 'Inter', sans-serif !important;
+            font-size: 10px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .print-patient-report {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0.5cm 0 !important;
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            display: block !important;
+          }/* Patient Meta Info Box */
+          .print-meta-box {
+            display: grid !important;
+            grid-template-cols: repeat(3, 1fr) !important;
+            gap: 15px !important;
+            margin-bottom: 15px !important;
+            border: 1px solid #e2e8f0 !important;
+            padding: 8px 15px !important;
+            background-color: #f8fafc !important;
+            border-radius: 6px !important;
+            color: #0f172a !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          /* Table print styling */
+          table {
+            width: 100% !important;
+            table-layout: fixed !important;
+            border-collapse: collapse !important;
+            page-break-inside: auto !important;
+            margin-top: 15px !important;
+            margin-bottom: 40px !important;
+          }
+          tr {
+            page-break-inside: avoid !important;
+            page-break-after: auto !important;
+          }
+          tr:nth-child(even) {
+            background-color: #f8fafc !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          thead {
+            display: table-header-group !important;
+          }
+          th, td {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            word-break: break-word !important;
+          }
+          th {
+            background-color: #0f172a !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            border: 1px solid #0f172a !important;
+            padding: 8px 10px !important;
+            text-align: left !important;
+            font-size: 9px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          td {
+            border-bottom: 1px solid #e2e8f0 !important;
+            padding: 8px 10px !important;
+            color: #334155 !important;
+            font-weight: 500 !important;
+            font-size: 9px !important;
+          }
+
+          /* Signatures printed footer */
+          .print-signatures {
+            display: flex !important;
+            justify-content: space-between !important;
+            position: relative !important;
+            margin-top: 50px !important;
+            page-break-inside: avoid !important;
+            border-top: 1px dashed #cbd5e1 !important;
+            padding-top: 25px !important;
+          }
+        }
+      `}</style>
+
+      {/* Screen layout wrapper (hidden during print) */}
+      <div className="no-print space-y-6">
+        {/* Header Panel */}
       <div>
         <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-wide flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center shrink-0">
@@ -375,9 +658,11 @@ export default function PatientsPage() {
         </div>
       )}
 
+      </div> {/* Close no-print screen layout */}
+
       {/* History Modal */}
       {isHistoryModalOpen && activePatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 no-print">
           <div className="bg-slate-950 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative shadow-2xl">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0 bg-slate-950/80">
@@ -427,7 +712,7 @@ export default function PatientsPage() {
                   <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-slate-800/80 bg-slate-950/60 text-[10px] text-slate-50 font-extrabold uppercase tracking-wider whitespace-nowrap">
+                        <tr className="border-b border-slate-800/80 bg-slate-950/60 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider whitespace-nowrap">
                           <th className="py-3 px-5">วันที่รับยา</th>
                           <th className="py-3 px-5">ชื่อยา / รหัส</th>
                           <th className="py-3 px-5 text-right">จำนวน</th>
@@ -467,7 +752,7 @@ export default function PatientsPage() {
                               <td className="py-3.5 px-5">
                                 <span className="flex items-center gap-1">
                                   <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                  {tx.supplier_or_dept}
+                                  {tx.supplier_or_dept || '-'}
                                 </span>
                               </td>
                               <td className="py-3.5 px-5 text-slate-400 font-medium">
@@ -512,7 +797,7 @@ export default function PatientsPage() {
                             </div>
                             <div>
                               <span className="text-slate-500 block font-semibold">แผนกผู้รับ</span>
-                              <span className="text-slate-300 block mt-0.5">{tx.supplier_or_dept}</span>
+                              <span className="text-slate-300 block mt-0.5">{tx.supplier_or_dept || '-'}</span>
                             </div>
                             <div className="col-span-2 pt-1 border-t border-slate-950/20">
                               <span className="text-slate-500 block font-semibold">ผู้เบิก / ผู้บันทึก (LOG IN)</span>
@@ -576,13 +861,142 @@ export default function PatientsPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 bg-slate-950/80 border-t border-slate-800 flex justify-end shrink-0">
+            <div className="px-6 py-4 bg-slate-950/80 border-t border-slate-800 flex justify-between items-center shrink-0 no-print gap-3">
+              <div className="flex items-center gap-2">
+                {/* 
+                <button
+                  onClick={() => window.print()}
+                  disabled={activePatientTransactions.length === 0}
+                  className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold px-4 py-2.5 rounded-xl shadow-lg transition-all text-xs cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>พิมพ์รายงาน (PDF)</span>
+                </button>
+                */}
+
+                <button
+                  onClick={handleExportPatientExcel}
+                  disabled={activePatientTransactions.length === 0}
+                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold px-4 py-2.5 rounded-xl shadow-lg transition-all text-xs cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>ส่งออก Excel</span>
+                </button>
+              </div>
+
               <button
                 onClick={() => setIsHistoryModalOpen(false)}
                 className="px-5 py-2.5 text-xs bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl transition-colors cursor-pointer"
               >
                 ปิดหน้าต่าง
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= PRINT ONLY PATIENT REPORT ================= */}
+      {activePatient && (
+        <div className="hidden print-patient-report text-black">
+          {/* Header */}
+          <div className="flex justify-between items-center w-full border-b-2 border-slate-900 pb-3 mb-4">
+            <div className="flex items-center gap-2">
+              {/* SVG Medical Cross Emblem */}
+              <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-white shrink-0">
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 10.5h-5.5V5a1.5 1.5 0 00-3 0v5.5H5a1.5 1.5 0 000 3h5.5V19a1.5 1.5 0 003 0v-5.5H19a1.5 1.5 0 000-3z" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-sm font-extrabold tracking-wide uppercase">รายงานประวัติการรับยาผู้ป่วยรายบุคคล</h1>
+                <p className="text-[9px] font-bold text-gray-500">ระบบบริหารจัดการยาและคลังเวชภัณฑ์ (Central Pharmacy Stock)</p>
+              </div>
+            </div>
+            
+            <div className="text-right text-[9px] text-gray-500 space-y-0.5">
+              <p>ผู้จัดพิมพ์รายงาน: {session?.user?.name || 'เจ้าหน้าที่คลังยา'}</p>
+              <p>วันที่พิมพ์: {new Date().toLocaleDateString('th-TH')}</p>
+            </div>
+          </div>
+
+          {/* Patient Meta Info Box */}
+          <div className="print-meta-box">
+            <div>
+              <span className="text-gray-500 block text-[9px] uppercase font-bold">ชื่อผู้ป่วย:</span>
+              <span className="text-xs font-black text-slate-800">{activePatient.name}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-[9px] uppercase font-bold">หมายเลข HN:</span>
+              <span className="text-xs font-black text-slate-800 font-mono">{activePatient.hn}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block text-[9px] uppercase font-bold">อายุ:</span>
+              <span className="text-xs font-black text-slate-800">{activePatient.age} ปี</span>
+            </div>
+            {activePatient.allergy && activePatient.allergy.trim() !== 'ไม่มี' && (
+              <div className="col-span-3 mt-1.5 pt-1.5 border-t border-rose-100 text-rose-700">
+                <span className="text-[9px] font-bold uppercase block text-rose-500">ประวัติแพ้ยา (Allergies Warning):</span>
+                <span className="text-xs font-black">{activePatient.allergy}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Table */}
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr>
+                <th style={{ width: '15%' }}>วันที่รับยา</th>
+                <th style={{ width: '15%' }}>รหัสยา</th>
+                <th style={{ width: '30%' }}>ชื่อเวชภัณฑ์ยา</th>
+                <th style={{ width: '10%' }} className="text-right">จำนวน</th>
+                <th style={{ width: '10%' }}>หน่วย</th>
+                <th style={{ width: '20%' }}>แผนกผู้รับเบิก</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activePatientTransactions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-6">ไม่มีประวัติการเบิกจ่ายยาระบุถึงผู้ป่วยรายนี้</td>
+                </tr>
+              ) : (
+                activePatientTransactions.map((tx) => (
+                  <tr key={tx.id}>
+                    <td>
+                      {new Date(tx.date).toLocaleDateString('th-TH', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </td>
+                    <td className="font-mono">{tx.medicine_code}</td>
+                    <td className="font-extrabold">{tx.medicine_name}</td>
+                    <td className="text-right font-bold">{tx.quantity.toLocaleString()}</td>
+                    <td>{tx.unit}</td>
+                    <td>{tx.supplier_or_dept || '-'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+
+          {/* Signatures */}
+          <div className="print-signatures text-xs font-semibold">
+            <div className="w-[45%] text-center space-y-12">
+              <p className="font-bold text-gray-700">ผู้รายงาน / ผู้จัดทำเอกสาร</p>
+              <div className="space-y-2">
+                <p>ลงชื่อ ........................................................................</p>
+                <p className="text-gray-800 font-extrabold">( {session?.user?.name || '...........................................'} )</p>
+                <p className="text-gray-500 text-[10px]">ตำแหน่ง เจ้าหน้าที่บันทึกจ่ายเวชภัณฑ์ยา</p>
+              </div>
+            </div>
+
+            <div className="w-[45%] text-center space-y-12">
+              <p className="font-bold text-gray-700">ผู้สอบทาน / หัวหน้าแผนก</p>
+              <div className="space-y-2">
+                <p>ลงชื่อ ........................................................................</p>
+                <p className="text-gray-450">( ........................................................................ )</p>
+                <p className="text-gray-500 text-[10px]">ตำแหน่ง หัวหน้างานเภสัชกรรมคลังกลาง</p>
+              </div>
             </div>
           </div>
         </div>

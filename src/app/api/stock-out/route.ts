@@ -32,6 +32,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const {
+      items, // Optional array of { medicine_id: string, quantity: number, unit: string }
       medicine_id,
       quantity,
       unit,
@@ -45,28 +46,47 @@ export async function POST(request: Request) {
       patient_allergy,
     } = body;
 
+    // Normalize input to items array
+    let itemsToProcess: Array<{ medicine_id: string; quantity: number; unit: string }> = [];
+    if (items && Array.isArray(items)) {
+      itemsToProcess = items.map((item: any) => ({
+        medicine_id: item.medicine_id,
+        quantity: Number(item.quantity),
+        unit: String(item.unit || '').trim(),
+      }));
+    } else if (medicine_id) {
+      itemsToProcess = [{
+        medicine_id,
+        quantity: Number(quantity),
+        unit: String(unit || '').trim(),
+      }];
+    }
+
     // Validation
-    if (!medicine_id || quantity === undefined || !unit || !department || !requester || !issued_date) {
+    if (itemsToProcess.length === 0 || !requester || !issued_date) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const qty = Number(quantity);
-    if (isNaN(qty) || qty <= 0) {
-      return NextResponse.json({ error: 'Quantity must be a positive number' }, { status: 400 });
+    for (const item of itemsToProcess) {
+      if (!item.medicine_id || isNaN(item.quantity) || item.quantity <= 0 || !item.unit) {
+        return NextResponse.json({ error: 'Invalid medicine item fields or quantity must be a positive number' }, { status: 400 });
+      }
     }
 
-    // 1. Fetch medicine data to check stock availability
+    // 1. Fetch medicine data to check stock availability for all items
     const medicines = await getSheetData<Medicine>('Medicines');
-    const medicine = medicines.find((m) => m.medicine_id === medicine_id);
-    if (!medicine) {
-      return NextResponse.json({ error: 'Medicine not found' }, { status: 404 });
-    }
+    for (const item of itemsToProcess) {
+      const medicine = medicines.find((m) => m.medicine_id === item.medicine_id);
+      if (!medicine) {
+        return NextResponse.json({ error: `Medicine with ID ${item.medicine_id} not found` }, { status: 404 });
+      }
 
-    const currentStock = Number(medicine.current_stock) || 0;
-    if (currentStock < qty) {
-      return NextResponse.json({
-        error: `Insufficient stock. Current stock is ${currentStock} but requested ${qty}`,
-      }, { status: 400 });
+      const currentStock = Number(medicine.current_stock) || 0;
+      if (currentStock < item.quantity) {
+        return NextResponse.json({
+          error: `Insufficient stock for medicine "${medicine.medicine_name}". Current stock is ${currentStock} but requested ${item.quantity}`,
+        }, { status: 400 });
+      }
     }
 
     const nowStr = new Date().toISOString();
@@ -102,38 +122,48 @@ export async function POST(request: Request) {
       }
     }
 
-    // 3. Insert StockOut Record
+    // 3. Insert StockOut Records
     const stockOutRecords = await getSheetData<StockOut>('StockOut');
     const nextId = generateNextId(stockOutRecords);
     const creatorName = session.user.name || session.user.email || 'System';
+    const savedTransactions: StockOut[] = [];
 
-    const newStockOut: StockOut = {
-      stock_out_id: nextId,
-      medicine_id,
-      quantity: qty,
-      unit: unit.trim(),
-      department: department.trim(),
-      requester: requester.trim(),
-      purpose: purpose?.trim() || '',
-      issued_date,
-      hn: hn?.trim() || '',
-      created_by: creatorName,
-      created_at: nowStr,
-    };
+    for (let idx = 0; idx < itemsToProcess.length; idx++) {
+      const item = itemsToProcess[idx];
+      const medicine = medicines.find((m) => m.medicine_id === item.medicine_id)!;
+      const currentStock = Number(medicine.current_stock) || 0;
+      
+      const recordId = itemsToProcess.length === 1 ? nextId : `${nextId}-${idx + 1}`;
 
-    await appendSheetRow('StockOut', newStockOut);
+      const newStockOut: StockOut = {
+        stock_out_id: recordId,
+        medicine_id: item.medicine_id,
+        quantity: item.quantity,
+        unit: item.unit,
+        department: department?.trim() || '',
+        requester: requester.trim(),
+        purpose: purpose?.trim() || '',
+        issued_date,
+        hn: hn?.trim() || '',
+        created_by: creatorName,
+        created_at: nowStr,
+      };
 
-    // 4. Update Medicine stock
-    const newStock = currentStock - qty;
-    await updateSheetRow('Medicines', 'medicine_id', medicine_id, {
-      current_stock: newStock,
-      updated_at: nowStr,
-    });
+      await appendSheetRow('StockOut', newStockOut);
+
+      // 4. Update Medicine stock
+      const newStock = currentStock - item.quantity;
+      await updateSheetRow('Medicines', 'medicine_id', item.medicine_id, {
+        current_stock: newStock,
+        updated_at: nowStr,
+      });
+
+      savedTransactions.push(newStockOut);
+    }
 
     return NextResponse.json({
       success: true,
-      transaction: newStockOut,
-      new_stock: newStock,
+      transactions: savedTransactions,
     }, { status: 201 });
   } catch (error: any) {
     console.error('Error posting stock-out:', error);

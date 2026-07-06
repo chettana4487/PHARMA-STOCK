@@ -542,7 +542,7 @@ export default function AnalyticsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Card 1: Remaining */}
             <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-700/60 transition-all duration-300">
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-300">
+              <div className="absolute top-0 right-0 p-8 card-watermark-icon group-hover:scale-110 transition-transform duration-300">
                 <Archive className="w-24 h-24 text-emerald-400" />
               </div>
               <p className="text-xs font-bold text-slate-400 tracking-wider uppercase">ปริมาณยาคงเหลือในคลังปัจจุบัน</p>
@@ -557,7 +557,7 @@ export default function AnalyticsPage() {
 
             {/* Card 2: Total Stock Out */}
             <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-700/60 transition-all duration-300">
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-300">
+              <div className="absolute top-0 right-0 p-8 card-watermark-icon group-hover:scale-110 transition-transform duration-300">
                 <ArrowUpRight className="w-24 h-24 text-rose-400" />
               </div>
               <p className="text-xs font-bold text-slate-400 tracking-wider uppercase">ยอดเบิกจ่ายออกสะสม</p>
@@ -572,7 +572,7 @@ export default function AnalyticsPage() {
 
             {/* Card 3: Consumption Ratio */}
             <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl relative overflow-hidden group hover:border-slate-700/60 transition-all duration-300">
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-300">
+              <div className="absolute top-0 right-0 p-8 card-watermark-icon group-hover:scale-110 transition-transform duration-300">
                 <TrendingUp className="w-24 h-24 text-teal-400" />
               </div>
               <p className="text-xs font-bold text-slate-400 tracking-wider uppercase">สัดส่วนการเบิกจ่ายต่อคลัง</p>

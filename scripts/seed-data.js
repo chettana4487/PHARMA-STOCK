@@ -105,8 +105,24 @@ for (let i = 0; i < patientNames.length; i++) {
   patients.push([hn, patientNames[i], String(age), allergy, nowStr, nowStr]);
 }
 
-// 4. StockIn Transactions (30 entries)
-const stockIn = [];
+// 4. StockIn Transactions (50 entries)
+function getRandomDateSinceStartOfYear() {
+  const start = new Date(now.getFullYear(), 0, 1).getTime();
+  const end = now.getTime();
+  const randomTime = start + Math.random() * (end - start);
+  return new Date(randomTime);
+}
+
+const recorders = [
+  'ภญ.พิมพ์ชนก แสงเงิน',
+  'ภก.สมเจตน์ มั่นคง',
+  'น.ส.ดวงใจ ดีเลิศ',
+  'นายเกียรติภูมิ แก้วใส',
+  'ภญ.อัญชลี รักษ์ไทย',
+  'Admin User'
+];
+
+const stockInRaw = [];
 const suppliers = [
   'บริษัท สยามฟาร์มาซูติคอล จำกัด',
   'บริษัท เมก้า ไลฟ์ไซแอ็นซ์ จำกัด',
@@ -115,8 +131,7 @@ const suppliers = [
   'บริษัท ไบโอแลป จำกัด'
 ];
 
-for (let i = 1; i <= 30; i++) {
-  const inId = `IN${String(i).padStart(3, '0')}`;
+for (let i = 1; i <= 50; i++) {
   const med = medicineTemplates[Math.floor(Math.random() * medicineTemplates.length)];
   const medId = med[0];
   const lotNo = `LOT-${med[1]}-${Math.floor(Math.random() * 90) + 10}`;
@@ -124,19 +139,51 @@ for (let i = 1; i <= 30; i++) {
   const unit = med[4];
   const expireDate = med[9];
   
-  const daysAgo = Math.floor(Math.random() * 80) + 5;
-  const receivedDate = getPastDate(daysAgo).toISOString().split('T')[0];
+  const randDate = getRandomDateSinceStartOfYear();
   const supplier = suppliers[Math.floor(Math.random() * suppliers.length)];
   const docNo = `INV-${Math.floor(Math.random() * 9000) + 1000}`;
   const fileUrl = Math.random() > 0.5 ? `https://drive.google.com/file/d/demo_inv_${i}/view` : '';
-  const creator = 'System Seeder';
-  const createdAt = new Date(receivedDate).toISOString();
+  const creator = recorders[Math.floor(Math.random() * recorders.length)];
 
-  stockIn.push([inId, medId, lotNo, String(quantity), unit, expireDate, receivedDate, supplier, docNo, fileUrl, creator, createdAt]);
+  stockInRaw.push({
+    medId,
+    lotNo,
+    quantity,
+    unit,
+    expireDate,
+    randDate,
+    supplier,
+    docNo,
+    fileUrl,
+    creator
+  });
 }
 
-// 5. StockOut Transactions (60 entries)
-const stockOut = [];
+// Sort StockIn records chronologically
+stockInRaw.sort((a, b) => a.randDate - b.randDate);
+
+const stockIn = stockInRaw.map((item, index) => {
+  const inId = `IN${String(index + 1).padStart(3, '0')}`;
+  const receivedDate = item.randDate.toISOString().split('T')[0];
+  const createdAt = item.randDate.toISOString();
+  return [
+    inId,
+    item.medId,
+    item.lotNo,
+    String(item.quantity),
+    item.unit,
+    item.expireDate,
+    receivedDate,
+    item.supplier,
+    item.docNo,
+    item.fileUrl,
+    item.creator,
+    createdAt
+  ];
+});
+
+// 5. StockOut Transactions (100 entries)
+const stockOutRaw = [];
 const departments = [
   'แผนกผู้ป่วยนอก (OPD)',
   'แผนกผู้ป่วยใน (IPD)',
@@ -154,8 +201,7 @@ const purposes = [
   'กระจายยาสู่ห้องยาผู้ป่วยนอก', 'จ่ายยาคนไข้เบาหวาน/ความดัน', 'เบิกเติมยาสามัญประจำตู้', 'ระงับปวดฉุกเฉิน'
 ];
 
-for (let i = 1; i <= 60; i++) {
-  const outId = `OUT${String(i).padStart(3, '0')}`;
+for (let i = 1; i <= 100; i++) {
   const med = medicineTemplates[Math.floor(Math.random() * medicineTemplates.length)];
   const medId = med[0];
   const quantity = Math.floor(Math.random() * 15) * 5 + 10; // 10 to 80
@@ -164,17 +210,47 @@ for (let i = 1; i <= 60; i++) {
   const requester = doctors[Math.floor(Math.random() * doctors.length)];
   const purpose = purposes[Math.floor(Math.random() * purposes.length)];
   
-  const daysAgo = Math.floor(Math.random() * 80) + 2;
-  const issuedDate = getPastDate(daysAgo).toISOString().split('T')[0];
-  const creator = 'System Seeder';
-  const createdAt = new Date(issuedDate).toISOString();
+  const randDate = getRandomDateSinceStartOfYear();
+  const creator = recorders[Math.floor(Math.random() * recorders.length)];
   
   const hasPatient = Math.random() < 0.90;
   const patient = hasPatient ? patients[Math.floor(Math.random() * patients.length)] : null;
   const hn = patient ? patient[0] : '';
 
-  stockOut.push([outId, medId, String(quantity), unit, dept, requester, purpose, issuedDate, creator, createdAt, hn]);
+  stockOutRaw.push({
+    medId,
+    quantity,
+    unit,
+    dept,
+    requester,
+    purpose,
+    randDate,
+    creator,
+    hn
+  });
 }
+
+// Sort StockOut records chronologically
+stockOutRaw.sort((a, b) => a.randDate - b.randDate);
+
+const stockOut = stockOutRaw.map((item, index) => {
+  const outId = `OUT${String(index + 1).padStart(3, '0')}`;
+  const issuedDate = item.randDate.toISOString().split('T')[0];
+  const createdAt = item.randDate.toISOString();
+  return [
+    outId,
+    item.medId,
+    String(item.quantity),
+    item.unit,
+    item.dept,
+    item.requester,
+    item.purpose,
+    issuedDate,
+    item.creator,
+    createdAt,
+    item.hn
+  ];
+});
 
 async function seed() {
   try {
@@ -213,7 +289,7 @@ async function seed() {
     });
 
     // Seed StockIn Records
-    console.log('🔄 กำลังเขียนประวัตินำเข้าจำลอง (30 รายการ)...');
+    console.log(`🔄 กำลังเขียนประวัตินำเข้าจำลอง (${stockIn.length} รายการ)...`);
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: 'StockIn!A2',
@@ -222,7 +298,7 @@ async function seed() {
     });
 
     // Seed StockOut Records
-    console.log('🔄 กำลังเขียนประวัติการเบิกจ่ายจำลอง (60 รายการ)...');
+    console.log(`🔄 กำลังเขียนประวัติการเบิกจ่ายจำลอง (${stockOut.length} รายการ)...`);
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: 'StockOut!A2',

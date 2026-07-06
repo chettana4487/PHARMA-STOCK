@@ -169,3 +169,19 @@ body {
 .light ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Card Watermark Icon styling for Light/Dark modes */
+.card-watermark-icon {
+  opacity: 0.08 !important;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.light .card-watermark-icon {
+  opacity: 0.18 !important;
+}
+
+/* Global print utility overrides */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

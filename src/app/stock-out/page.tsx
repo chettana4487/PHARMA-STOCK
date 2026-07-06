@@ -12,6 +12,8 @@ import {
   ClipboardList,
   Minus,
   Camera,
+  Plus,
+  X,
 } from 'lucide-react';
 import BarcodeScannerModal from '@/components/BarcodeScannerModal';
 
@@ -33,6 +35,15 @@ interface Patient {
   allergy: string;
 }
 
+interface CartItem {
+  medicine_id: string;
+  medicine_code: string;
+  medicine_name: string;
+  quantity: number;
+  unit: string;
+  current_stock: number;
+}
+
 export default function StockOutPage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -43,6 +54,42 @@ export default function StockOutPage() {
   const [loading, setLoading] = useState(true);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerMode, setScannerMode] = useState<'medicine' | 'patient'>('medicine');
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  const categories = React.useMemo(() => {
+    return Array.from(new Set(medicines.map((m) => m.category).filter(Boolean))).sort() as string[];
+  }, [medicines]);
+
+  const filteredMedicines = React.useMemo(() => {
+    return selectedCategory === 'all'
+      ? medicines
+      : medicines.filter((m) => m.category === selectedCategory);
+  }, [medicines, selectedCategory]);
+
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newCat = e.target.value;
+    setSelectedCategory(newCat);
+
+    const filtered = newCat === 'all'
+      ? medicines
+      : medicines.filter((m) => m.category === newCat);
+
+    if (filtered.length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        medicine_id: filtered[0].medicine_id,
+        unit: filtered[0].unit,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        medicine_id: '',
+        unit: '',
+      }));
+    }
+  };
 
   // Form states
   const [formData, setFormData] = useState({
@@ -190,28 +237,81 @@ export default function StockOutPage() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.medicine_id || !formData.quantity || !formData.department || !formData.requester || !formData.issued_date) {
-      toast.error('กรุณากรอกข้อมูลหลักให้ครบถ้วน');
+  // Cart actions
+  const handleAddToCart = () => {
+    if (!formData.medicine_id) {
+      toast.error('กรุณาเลือกรายการยา');
       return;
     }
-
     const qty = Number(formData.quantity);
     if (isNaN(qty) || qty <= 0) {
-      toast.error('จำนวนจ่ายยาต้องมากกว่า 0');
+      toast.error('กรุณาระบุจำนวนเบิกที่ถูกต้อง (มากกว่า 0)');
       return;
     }
 
-    const selectedMed = medicines.find((m) => m.medicine_id === formData.medicine_id);
+    const selectedMed = medicines.find(m => m.medicine_id === formData.medicine_id);
     if (!selectedMed) return;
 
     if (qty > selectedMed.current_stock) {
-      toast.error('ยอดจ่ายมากกว่าสต็อกคงคลังที่มีอยู่จริง');
+      toast.error(`จำนวนเบิก (${qty}) เกินยอดคงเหลือในคลัง (${selectedMed.current_stock})`);
       return;
     }
 
+    const existingIndex = cart.findIndex(item => item.medicine_id === selectedMed.medicine_id);
+    if (existingIndex > -1) {
+      const newQty = cart[existingIndex].quantity + qty;
+      if (newQty > selectedMed.current_stock) {
+        toast.error(`จำนวนรวมสำหรับยานี้ (${newQty}) เกินยอดคงเหลือในคลัง (${selectedMed.current_stock})`);
+        return;
+      }
+      const newCart = [...cart];
+      newCart[existingIndex].quantity = newQty;
+      setCart(newCart);
+      toast.success(`เพิ่มจำนวน "${selectedMed.medicine_name}" เป็น ${newQty} ${selectedMed.unit} สำเร็จ`);
+    } else {
+      setCart([...cart, {
+        medicine_id: selectedMed.medicine_id,
+        medicine_code: selectedMed.medicine_code,
+        medicine_name: selectedMed.medicine_name,
+        quantity: qty,
+        unit: selectedMed.unit,
+        current_stock: selectedMed.current_stock
+      }]);
+      toast.success(`เพิ่ม "${selectedMed.medicine_name}" เข้าสู่รายการเบิกสำเร็จ`);
+    }
+
+    // Reset quantity input
+    setFormData(prev => ({ ...prev, quantity: '' }));
+  };
+
+  const handleRemoveFromCart = (medId: string) => {
+    setCart(prev => prev.filter(item => item.medicine_id !== medId));
+    toast.success('ลบรายการสำเร็จ');
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (cart.length === 0) {
+      toast.error('กรุณาเลือกรายการยาที่ต้องการเบิกอย่างน้อย 1 รายการ');
+      return;
+    }
+
+    if (!formData.requester || !formData.issued_date) {
+      toast.error('กรุณาระบุชื่อผู้เบิกและวันที่เบิก');
+      return;
+    }
+
+    if (formData.hn && (!formData.patient_name || !formData.patient_age)) {
+      toast.error('กรุณากรอกข้อมูลผู้ป่วยให้ครบถ้วน (ชื่อและอายุ)');
+      return;
+    }
+
+    setIsVerifyModalOpen(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    setIsVerifyModalOpen(false);
     const toastId = toast.loading('กำลังบันทึกข้อมูลเบิกจ่ายและหักยอดสต็อก...');
 
     try {
@@ -219,8 +319,19 @@ export default function StockOutPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          quantity: qty,
+          items: cart.map(item => ({
+            medicine_id: item.medicine_id,
+            quantity: item.quantity,
+            unit: item.unit
+          })),
+          department: formData.department,
+          requester: formData.requester,
+          purpose: formData.purpose,
+          issued_date: formData.issued_date,
+          hn: formData.hn,
+          patient_name: formData.patient_name,
+          patient_age: formData.patient_age,
+          patient_allergy: formData.patient_allergy,
         }),
       });
 
@@ -228,7 +339,7 @@ export default function StockOutPage() {
       if (res.ok) {
         toast.success('ทำรายการเบิกจ่ายและหักยอดคลังสำเร็จแล้ว', { id: toastId });
         
-        // Reset form but retain defaults
+        setCart([]);
         setFormData({
           medicine_id: medicines[0]?.medicine_id || '',
           quantity: '',
@@ -243,7 +354,7 @@ export default function StockOutPage() {
           patient_allergy: '',
         });
         
-        fetchMedicines(); // Refresh stock numbers and patients list locally
+        fetchMedicines();
         router.refresh();
       } else {
         toast.error(result.error || 'บันทึกไม่สำเร็จ', { id: toastId });
@@ -285,14 +396,31 @@ export default function StockOutPage() {
           ไม่พบรายการยาทีี่ลงทะเบียนในระบบ กรุณาลงทะเบียนยาที่เมนู &quot;จัดการยา&quot; ก่อน
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Main Form Fields */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-3 space-y-6">
             <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl space-y-4 shadow-lg">
               <h2 className="text-base font-bold text-white tracking-wide border-b border-slate-800/80 pb-3 flex items-center gap-2">
                 <Pill className="w-5 h-5 text-rose-500" />
                 ระบุรายการเวชภัณฑ์ยา
               </h2>
+
+              {/* Category Select */}
+              <div>
+                <label className="block text-xs font-extrabold text-slate-400 mb-1">เลือกหมวดหมู่เวชภัณฑ์ยา</label>
+                <select
+                  value={selectedCategory}
+                  onChange={handleCategoryChange}
+                  className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-rose-500 font-bold mb-3"
+                >
+                  <option value="all">หมวดหมู่เวชภัณฑ์ทั้งหมด</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {/* Medicine Select */}
               <div>
@@ -316,11 +444,15 @@ export default function StockOutPage() {
                   onChange={handleMedicineChange}
                   className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-rose-500 font-bold"
                 >
-                  {medicines.map((med) => (
-                    <option key={med.medicine_id} value={med.medicine_id}>
-                      [{med.medicine_code}] {med.medicine_name} (คงเหลือ: {med.current_stock} {med.unit})
-                    </option>
-                  ))}
+                  {filteredMedicines.length === 0 ? (
+                    <option value="">-- ไม่พบเวชภัณฑ์ในหมวดหมู่นี้ --</option>
+                  ) : (
+                    filteredMedicines.map((med) => (
+                      <option key={med.medicine_id} value={med.medicine_id}>
+                        [{med.medicine_code}] {med.medicine_name} (คงเหลือ: {med.current_stock} {med.unit})
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -332,7 +464,6 @@ export default function StockOutPage() {
                     <input
                       type="number"
                       name="quantity"
-                      required
                       min="1"
                       placeholder="ป้อนตัวเลข..."
                       value={formData.quantity}
@@ -360,6 +491,16 @@ export default function StockOutPage() {
                       * เวชภัณฑ์นี้หมดสต็อกชั่วคราว
                     </span>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={handleAddToCart}
+                    disabled={isStockInsufficient || !formData.quantity || Number(formData.quantity) <= 0}
+                    className="mt-3 w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>เพิ่มรายการยานี้ลงรายการเบิก</span>
+                  </button>
                 </div>
 
                 {/* Issued date */}
@@ -375,6 +516,47 @@ export default function StockOutPage() {
                   />
                 </div>
               </div>
+
+              {/* Cart List */}
+              {cart.length > 0 && (
+                <div className="mt-6 border-t border-slate-800/80 pt-5 space-y-3">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider">
+                    รายการยาที่กำลังเบิกจ่าย ({cart.length} รายการ)
+                  </h3>
+                  <div className="overflow-hidden border border-slate-800/60 rounded-2xl">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-900/60 text-slate-400 font-bold border-b border-slate-800/60">
+                          <th className="py-2.5 px-3">รหัสยา</th>
+                          <th className="py-2.5 px-3">ชื่อเวชภัณฑ์</th>
+                          <th className="py-2.5 px-3 text-right">จำนวน</th>
+                          <th className="py-2.5 px-3 text-center">การจัดการ</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/40">
+                        {cart.map((item) => (
+                          <tr key={item.medicine_id} className="hover:bg-slate-900/20 text-slate-350 font-semibold">
+                            <td className="py-2.5 px-3 font-mono text-emerald-400">{item.medicine_code}</td>
+                            <td className="py-2.5 px-3 text-white">{item.medicine_name}</td>
+                            <td className="py-2.5 px-3 text-right font-bold text-slate-200">
+                              {item.quantity.toLocaleString()} {item.unit}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveFromCart(item.medicine_id)}
+                                className="text-rose-500 hover:text-rose-450 font-bold text-[10px] cursor-pointer"
+                              >
+                                ลบออก
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Patient Information Section */}
@@ -525,28 +707,7 @@ export default function StockOutPage() {
                 รายละเอียดผู้ขอเบิกและวัตถุประสงค์
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Department */}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-400 mb-1">แผนกที่นำไปใช้ (Department) *</label>
-                  <select
-                    name="department"
-                    required
-                    value={formData.department}
-                    onChange={handleInputChange}
-                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-300 focus:outline-none focus:border-rose-500"
-                  >
-                    <option value="">-- เลือกแผนกผู้เบิก --</option>
-                    <option value="แผนกผู้ป่วยนอก (OPD)">แผนกผู้ป่วยนอก (OPD)</option>
-                    <option value="แผนกผู้ป่วยใน (IPD)">แผนกผู้ป่วยใน (IPD)</option>
-                    <option value="แผนกฉุกเฉิน (ER)">แผนกฉุกเฉิน (ER)</option>
-                    <option value="หออภิบาลผู้ป่วยหนัก (ICU)">หออภิบาลผู้ป่วยหนัก (ICU)</option>
-                    <option value="ห้องผ่าตัด (OR)">ห้องผ่าตัด (OR)</option>
-                    <option value="ห้องทันตกรรม">ห้องทันตกรรม</option>
-                    <option value="แผนกเภสัชกรรม (กระจายยา)">แผนกเภสัชกรรม (กระจายยา)</option>
-                  </select>
-                </div>
-
+              <div className="space-y-4">
                 {/* Requester */}
                 <div>
                   <label className="block text-xs font-extrabold text-slate-400 mb-1">ชื่อผู้เบิก / เจ้าหน้าที่รับผิดชอบ *</label>
@@ -566,25 +727,25 @@ export default function StockOutPage() {
                     ))}
                   </datalist>
                 </div>
-              </div>
 
-              {/* Purpose */}
-              <div>
-                <label className="block text-xs font-extrabold text-slate-400 mb-1">วัตถุประสงค์ในการเบิกใช้</label>
-                <input
-                  type="text"
-                  name="purpose"
-                  placeholder="ระบุเหตุผล เช่น เติมสต็อกวอร์ดประจำสัปดาห์, ใช้เฉพาะเคสคนไข้ฉุกเฉิน"
-                  value={formData.purpose}
-                  onChange={handleInputChange}
-                  className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500"
-                />
+                {/* Purpose */}
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-400 mb-1">วัตถุประสงค์ในการเบิกใช้</label>
+                  <input
+                    type="text"
+                    name="purpose"
+                    placeholder="ระบุเหตุผล เช่น เติมสต็อกวอร์ดประจำสัปดาห์, ใช้เฉพาะเคสคนไข้ฉุกเฉิน"
+                    value={formData.purpose}
+                    onChange={handleInputChange}
+                    className="w-full bg-slate-900 border border-slate-800 text-sm rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-rose-500"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
           {/* Quick Preview Panel */}
-          <div className="space-y-6">
+          <div className="lg:col-span-2 space-y-6">
             <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-lg flex flex-col justify-between h-full">
               <div className="space-y-4">
                 <h2 className="text-base font-bold text-white tracking-wide border-b border-slate-800/80 pb-3 flex items-center gap-2">
@@ -594,9 +755,9 @@ export default function StockOutPage() {
 
                 {selectedMed ? (
                   <div className="space-y-3 pt-2 text-xs">
-                    <div className="flex justify-between border-b border-slate-800/60 pb-2">
+                    <div className="border-b border-slate-800/60 pb-2 flex flex-col gap-1">
                       <span className="text-slate-500 font-semibold">ชื่อทางการยา</span>
-                      <span className="text-slate-300 font-bold">{selectedMed.medicine_name}</span>
+                      <span className="text-slate-200 font-bold text-sm leading-normal break-words whitespace-pre-wrap">{selectedMed.medicine_name}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-800/60 pb-2">
                       <span className="text-slate-500 font-semibold">รหัสทางการคลัง</span>
@@ -637,11 +798,11 @@ export default function StockOutPage() {
               <div className="mt-8 pt-4 border-t border-slate-800">
                 <button
                   type="submit"
-                  disabled={isStockInsufficient || isOutOfStock || !formData.department}
-                  className="w-full flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-rose-950/20 hover:-translate-y-0.5 disabled:-translate-y-0 transition-all duration-200 cursor-pointer"
+                  disabled={cart.length === 0}
+                  className="w-full flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-900 disabled:text-slate-500 disabled:border disabled:border-slate-850 disabled:cursor-not-allowed text-white font-extrabold py-3.5 rounded-2xl shadow-lg shadow-rose-950/20 hover:-translate-y-0.5 disabled:-translate-y-0 transition-all duration-200 cursor-pointer text-xs md:text-sm"
                 >
-                  <Minus className="w-5 h-5" />
-                  <span>บันทึกการเบิกจ่าย</span>
+                  <ClipboardList className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">บันทึกการเบิกจ่าย ({cart.length} รายการ)</span>
                 </button>
               </div>
             </div>
@@ -662,6 +823,132 @@ export default function StockOutPage() {
           }
         }}
       />
+
+      {/* Verification Summary Modal */}
+      {isVerifyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-950/60 border-b border-slate-800/80 flex justify-between items-center shrink-0">
+              <h3 className="text-base font-extrabold text-white tracking-wide">
+                ตรวจสอบและยืนยันการเบิกจ่ายยา
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsVerifyModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6 overflow-y-auto text-xs">
+              {/* Requester Info */}
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-wider">ข้อมูลผู้ขอเบิก</h4>
+                <div className="bg-slate-950/30 border border-slate-850 p-3.5 rounded-2xl space-y-2 font-semibold text-slate-350">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">ชื่อผู้เบิก:</span>
+                    <span className="text-white font-extrabold">{formData.requester}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">แผนก:</span>
+                    <span className="text-white font-extrabold">{formData.department || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">วัตถุประสงค์:</span>
+                    <span className="text-white font-extrabold">{formData.purpose || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">วันที่เบิกจ่าย:</span>
+                    <span className="text-white font-extrabold">
+                      {new Date(formData.issued_date).toLocaleDateString('th-TH', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Patient Info (if HN provided) */}
+              {formData.hn && (
+                <div className="space-y-2">
+                  <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-wider">ข้อมูลผู้ป่วย</h4>
+                  <div className="bg-slate-950/30 border border-slate-850 p-3.5 rounded-2xl space-y-2 font-semibold text-slate-350">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">หมายเลข HN:</span>
+                      <span className="text-emerald-400 font-mono font-bold">{formData.hn}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">ชื่อ-นามสกุล:</span>
+                      <span className="text-white font-extrabold">{formData.patient_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">อายุ:</span>
+                      <span className="text-white font-extrabold">{formData.patient_age} ปี</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">ประวัติแพ้ยา:</span>
+                      <span className={`font-bold ${formData.patient_allergy && formData.patient_allergy !== 'ไม่มี' ? 'text-rose-450' : 'text-slate-400'}`}>
+                        {formData.patient_allergy || 'ไม่มี'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Items List */}
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-wider">รายการเวชภัณฑ์ยาที่เบิก ({cart.length} รายการ)</h4>
+                <div className="border border-slate-800/80 rounded-2xl overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950/40 text-slate-400 font-bold text-[10px] border-b border-slate-800/80">
+                        <th className="py-2.5 px-3">ชื่อยา</th>
+                        <th className="py-2.5 px-3 text-right">จำนวน</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/40 text-slate-350 font-semibold">
+                      {cart.map((item) => (
+                        <tr key={item.medicine_id} className="hover:bg-slate-900/10">
+                          <td className="py-2.5 px-3">
+                            <span className="text-white font-bold block">{item.medicine_name}</span>
+                            <span className="text-[9px] text-slate-500 block font-mono mt-0.5">{item.medicine_code}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-black text-slate-200">
+                            {item.quantity.toLocaleString()} {item.unit}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="p-4 bg-slate-950/40 border-t border-slate-800/80 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsVerifyModalOpen(false)}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-850 text-slate-300 font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                ย้อนกลับไปแก้ไข
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSubmit}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl shadow-lg transition-colors cursor-pointer"
+              >
+                ยืนยันการเบิกจ่าย
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       {children}
       <Toaster 
         position="top-right"
+        containerClassName="no-print"
         toastOptions={{
           className: 'bg-slate-900 text-white rounded-lg shadow-xl border border-slate-700/50',
           duration: 3000,
