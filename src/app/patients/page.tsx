@@ -9,12 +9,13 @@ import {
   ClipboardList,
   Calendar,
   MapPin,
-  FileText,
   User,
   X,
   ShieldAlert,
   Clock,
-  BriefcaseMedical
+  BriefcaseMedical,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface Patient {
@@ -54,6 +55,13 @@ export default function PatientsPage() {
   const [activePatient, setActivePatient] = useState<Patient | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
+  const [historyPage, setHistoryPage] = useState(1);
+  const historyItemsPerPage = 5;
+
   async function fetchData() {
     try {
       setLoading(true);
@@ -83,6 +91,16 @@ export default function PatientsPage() {
     fetchData();
   }, []);
 
+  // Reset pagination on search
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  // Reset history page when active patient changes
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [activePatient]);
+
   const openHistoryModal = (patient: Patient) => {
     setActivePatient(patient);
     setIsHistoryModalOpen(true);
@@ -97,10 +115,39 @@ export default function PatientsPage() {
     );
   });
 
+  // Main Pagination calculation
+  const totalItems = filteredPatients.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedPatients = filteredPatients.slice(startIndex, endIndex);
+
   // Filter transactions for active patient
   const activePatientTransactions = activePatient
     ? transactions.filter((t) => t.hn?.trim().toLowerCase() === activePatient.hn.trim().toLowerCase())
     : [];
+
+  // History Pagination calculation
+  const historyTotalItems = activePatientTransactions.length;
+  const historyTotalPages = Math.max(1, Math.ceil(historyTotalItems / historyItemsPerPage));
+  const historyStartIndex = (historyPage - 1) * historyItemsPerPage;
+  const historyEndIndex = historyStartIndex + historyItemsPerPage;
+  const paginatedHistoryTransactions = activePatientTransactions.slice(historyStartIndex, historyEndIndex);
+
+  // Helper for generating range array
+  const getPageNumbers = (current: number, total: number) => {
+    const maxPageButtons = 5;
+    const pages: number[] = [];
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + maxPageButtons - 1);
+    if (end - start < maxPageButtons - 1) {
+      start = Math.max(1, end - maxPageButtons + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
 
   return (
     <div className="space-y-6">
@@ -133,7 +180,7 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      {/* Main Grid View */}
+      {/* Main Content View (Table on PC, Cards on Mobile) */}
       {loading ? (
         <div className="bg-slate-950/40 border border-slate-800 rounded-3xl p-12 text-center text-slate-400 animate-pulse">
           กำลังดาวน์โหลดฐานข้อมูลผู้ป่วย...
@@ -143,81 +190,188 @@ export default function PatientsPage() {
           ไม่พบข้อมูลผู้ป่วยในระบบการเบิกจ่าย
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPatients.map((pat) => {
-            const hasAllergy = pat.allergy && pat.allergy.trim() !== 'ไม่มี';
-            const patTxCount = transactions.filter(t => t.hn?.trim().toLowerCase() === pat.hn.trim().toLowerCase()).length;
-
-            return (
-              <div
-                key={pat.hn}
-                className="bg-slate-950/40 border border-slate-800 hover:border-slate-700/80 rounded-3xl p-6 flex flex-col justify-between shadow-lg hover:shadow-black/40 transition-all duration-200 group"
-              >
-                <div className="space-y-4">
-                  {/* Card Header */}
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <User className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <span className="block text-[10px] font-bold text-emerald-400 font-mono tracking-wider">
-                          {pat.hn}
+        <div className="bg-slate-950/40 border border-slate-800 rounded-3xl overflow-hidden shadow-lg">
+          {/* PC Table View */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800/80 bg-slate-950/50 text-[11px] text-slate-400 font-extrabold uppercase tracking-wider whitespace-nowrap">
+                  <th className="py-4 px-6">หมายเลข HN</th>
+                  <th className="py-4 px-6">ชื่อ-นามสกุล</th>
+                  <th className="py-4 px-6">อายุ</th>
+                  <th className="py-4 px-6">ประวัติแพ้ยา</th>
+                  <th className="py-4 px-6 text-center">จำนวนครั้งที่รับยา</th>
+                  <th className="py-4 px-6">อัปเดตล่าสุด</th>
+                  <th className="py-4 px-6 text-right">การจัดการ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/40 text-sm">
+                {paginatedPatients.map((pat) => {
+                  const hasAllergy = pat.allergy && pat.allergy.trim() !== 'ไม่มี';
+                  const patTxCount = transactions.filter(t => t.hn?.trim().toLowerCase() === pat.hn.trim().toLowerCase()).length;
+                  return (
+                    <tr key={pat.hn} className="hover:bg-slate-900/30 transition-colors whitespace-nowrap">
+                      <td className="py-4 px-6 font-bold text-emerald-400 font-mono text-xs">
+                        {pat.hn}
+                      </td>
+                      <td className="py-4 px-6 font-extrabold text-white">
+                        {pat.name}
+                      </td>
+                      <td className="py-4 px-6 text-slate-350 font-bold">
+                        {pat.age} ปี
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className={`font-bold inline-flex items-center gap-1 ${
+                          hasAllergy ? 'text-rose-400 animate-pulse' : 'text-slate-400'
+                        }`}>
+                          {hasAllergy ? (
+                            <>
+                              <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                              {pat.allergy}
+                            </>
+                          ) : (
+                            'ไม่มี'
+                          )}
                         </span>
-                        <h4 className="font-extrabold text-white text-base truncate max-w-[150px] sm:max-w-[200px]" title={pat.name}>
-                          {pat.name}
-                        </h4>
+                      </td>
+                      <td className="py-4 px-6 text-center text-slate-300 font-bold">
+                        {patTxCount} ครั้ง
+                      </td>
+                      <td className="py-4 px-6 text-xs text-slate-400">
+                        {new Date(pat.updated_at).toLocaleDateString('th-TH')}
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <button
+                          onClick={() => openHistoryModal(pat)}
+                          className="inline-flex items-center gap-1.5 bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 font-bold px-3.5 py-1.5 rounded-xl text-xs hover:bg-emerald-600 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <ClipboardList className="w-3.5 h-3.5" />
+                          <span>ดูประวัติ</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="block md:hidden p-4">
+            <div className="grid grid-cols-1 gap-4">
+              {paginatedPatients.map((pat) => {
+                const hasAllergy = pat.allergy && pat.allergy.trim() !== 'ไม่มี';
+                const patTxCount = transactions.filter(t => t.hn?.trim().toLowerCase() === pat.hn.trim().toLowerCase()).length;
+
+                return (
+                  <div
+                    key={pat.hn}
+                    className="bg-slate-900/30 border border-slate-800 rounded-3xl p-5 flex flex-col justify-between shadow-md hover:border-slate-700/80 transition-all duration-200"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 flex items-center justify-center shrink-0">
+                            <User className="w-4.5 h-4.5" />
+                          </div>
+                          <div>
+                            <span className="block text-[10px] font-bold text-emerald-400 font-mono tracking-wider">
+                              {pat.hn}
+                            </span>
+                            <h4 className="font-extrabold text-white text-sm truncate max-w-[150px]" title={pat.name}>
+                              {pat.name}
+                            </h4>
+                          </div>
+                        </div>
+                        <span className="text-xs bg-slate-900 border border-slate-850 px-2 py-0.5 rounded-lg text-slate-400 font-bold">
+                          อายุ {pat.age} ปี
+                        </span>
+                      </div>
+
+                      <div className="bg-slate-950/20 p-3 rounded-2xl border border-slate-900/60 space-y-2 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500 font-semibold">จำนวนครั้งที่รับยา</span>
+                          <span className="text-slate-200 font-bold flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            {patTxCount} ครั้ง
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-start pt-1.5 border-t border-slate-900/40">
+                          <span className="text-slate-500 font-semibold shrink-0 mt-0.5">ประวัติแพ้ยา</span>
+                          <span className={`font-bold text-right truncate max-w-[150px] ${
+                            hasAllergy ? 'text-rose-400 flex items-center gap-1 animate-pulse' : 'text-slate-400'
+                          }`}>
+                            {hasAllergy ? (
+                              <>
+                                <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                                {pat.allergy}
+                              </>
+                            ) : (
+                              'ไม่มี'
+                            )}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <span className="text-xs bg-slate-900 border border-slate-850 px-2 py-1 rounded-xl text-slate-400 font-bold">
-                      อายุ {pat.age} ปี
-                    </span>
-                  </div>
 
-                  {/* Allergy & Summary details */}
-                  <div className="bg-slate-950/20 p-3.5 rounded-2xl border border-slate-900/60 space-y-2 text-xs">
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500 font-semibold">จำนวนครั้งที่รับยา</span>
-                      <span className="text-slate-200 font-bold flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        {patTxCount} ครั้ง
+                    <div className="mt-4 pt-3 border-t border-slate-900/60 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-600 font-semibold">
+                        อัปเดตล่าสุด: {new Date(pat.updated_at).toLocaleDateString('th-TH')}
                       </span>
-                    </div>
-
-                    <div className="flex justify-between items-start pt-1.5 border-t border-slate-900/40">
-                      <span className="text-slate-500 font-semibold shrink-0 mt-0.5">ประวัติแพ้ยา</span>
-                      <span className={`font-bold text-right truncate max-w-[150px] ${
-                        hasAllergy ? 'text-rose-400 flex items-center gap-1 animate-pulse' : 'text-slate-400'
-                      }`}>
-                        {hasAllergy ? (
-                          <>
-                            <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                            {pat.allergy}
-                          </>
-                        ) : (
-                          'ไม่มี'
-                        )}
-                      </span>
+                      <button
+                        onClick={() => openHistoryModal(pat)}
+                        className="flex items-center gap-1 bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 font-bold px-3.5 py-1.5 rounded-xl text-xs hover:bg-emerald-600 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <ClipboardList className="w-3.5 h-3.5" />
+                        <span>ดูประวัติ</span>
+                      </button>
                     </div>
                   </div>
-                </div>
+                );
+              })}
+            </div>
+          </div>
 
-                {/* View button */}
-                <div className="mt-5 pt-3 border-t border-slate-900/60 flex items-center justify-between">
-                  <span className="text-[10px] text-slate-600 font-semibold">
-                    อัปเดตล่าสุด: {new Date(pat.updated_at).toLocaleDateString('th-TH')}
-                  </span>
-                  <button
-                    onClick={() => openHistoryModal(pat)}
-                    className="flex items-center gap-1 bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 font-bold px-3.5 py-1.5 rounded-xl text-xs hover:bg-emerald-600 hover:text-white transition-colors cursor-pointer"
-                  >
-                    <ClipboardList className="w-3.5 h-3.5" />
-                    <span>ดูประวัติ</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {/* Main Table Pagination */}
+          <div className="px-6 py-4 border-t border-slate-800/80 bg-slate-950/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-xs text-slate-400 font-medium">
+              แสดง {startIndex + 1} ถึง {Math.min(endIndex, totalItems)} จาก {totalItems} รายชื่อผู้ป่วย
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
+                title="ก่อนหน้า"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {getPageNumbers(currentPage, totalPages).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setCurrentPage(p)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                    currentPage === p
+                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/20'
+                      : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
+                title="ถัดไป"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -265,7 +419,7 @@ export default function PatientsPage() {
               <div className="space-y-3">
                 <h4 className="text-sm font-bold text-slate-400 flex items-center gap-1.5">
                   <BriefcaseMedical className="w-4 h-4 text-emerald-400" />
-                  รายการยาที่ได้รับเบิกจ่ายออกไป ({activePatientTransactions.length} รายการ)
+                  รายการยาที่ได้รับเบิกจ่ายออกไป ({historyTotalItems} รายการ)
                 </h4>
 
                 <div className="bg-slate-900/30 border border-slate-800/80 rounded-2xl overflow-hidden shadow-inner">
@@ -273,7 +427,7 @@ export default function PatientsPage() {
                   <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-slate-800/80 bg-slate-950/60 text-[10px] text-slate-500 font-extrabold uppercase tracking-wider whitespace-nowrap">
+                        <tr className="border-b border-slate-800/80 bg-slate-950/60 text-[10px] text-slate-50 font-extrabold uppercase tracking-wider whitespace-nowrap">
                           <th className="py-3 px-5">วันที่รับยา</th>
                           <th className="py-3 px-5">ชื่อยา / รหัส</th>
                           <th className="py-3 px-5 text-right">จำนวน</th>
@@ -283,14 +437,14 @@ export default function PatientsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/40 text-xs">
-                        {activePatientTransactions.length === 0 ? (
+                        {paginatedHistoryTransactions.length === 0 ? (
                           <tr>
                             <td colSpan={6} className="py-12 px-5 text-center text-slate-500 font-medium">
                               ไม่มีประวัติการเบิกจ่ายยาระบุถึงผู้ป่วยรายนี้
                             </td>
                           </tr>
                         ) : (
-                          activePatientTransactions.map((tx) => (
+                          paginatedHistoryTransactions.map((tx) => (
                             <tr key={tx.id} className="hover:bg-slate-900/20 text-slate-300 transition-colors whitespace-nowrap">
                               <td className="py-3.5 px-5">
                                 <span className="flex items-center gap-1 text-[11px] font-medium text-slate-400">
@@ -330,12 +484,12 @@ export default function PatientsPage() {
 
                   {/* Mobile responsive view */}
                   <div className="block md:hidden divide-y divide-slate-850">
-                    {activePatientTransactions.length === 0 ? (
+                    {paginatedHistoryTransactions.length === 0 ? (
                       <div className="py-12 px-5 text-center text-slate-500 text-xs">
                         ไม่มีประวัติการเบิกจ่ายยาระบุถึงผู้ป่วยรายนี้
                       </div>
                     ) : (
-                      activePatientTransactions.map((tx) => (
+                      paginatedHistoryTransactions.map((tx) => (
                         <div key={tx.id} className="p-4 space-y-3 bg-slate-900/10">
                           <div className="flex justify-between items-start">
                             <div>
@@ -368,6 +522,46 @@ export default function PatientsPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Modal History Table Pagination */}
+                {historyTotalPages > 1 && (
+                  <div className="px-5 py-3.5 border-t border-slate-800/80 bg-slate-950/20 flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl">
+                    <div className="text-[11px] text-slate-400 font-semibold">
+                      แสดง {historyStartIndex + 1} ถึง {Math.min(historyEndIndex, historyTotalItems)} จาก {historyTotalItems} รายการยา
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setHistoryPage(prev => Math.max(prev - 1, 1))}
+                        disabled={historyPage === 1}
+                        className="p-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+
+                      {getPageNumbers(historyPage, historyTotalPages).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setHistoryPage(p)}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 cursor-pointer ${
+                            historyPage === p
+                              ? 'bg-emerald-600 text-white shadow-md'
+                              : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+
+                      <button
+                        onClick={() => setHistoryPage(prev => Math.min(prev + 1, historyTotalPages))}
+                        disabled={historyPage === historyTotalPages}
+                        className="p-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

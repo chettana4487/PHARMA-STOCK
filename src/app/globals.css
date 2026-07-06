@@ -52,7 +52,6 @@
 }
 
 /* Ensure interactive elements keep high-contrast white text in light mode */
-.light .text-white,
 .light button.text-white,
 .light button .text-white,
 .light a.text-white,
@@ -90,6 +89,30 @@
 }
 .light .text-rose-400 {
   color: #e11d48 !important; /* rose-600 */
+}
+.light .text-amber-300 {
+  color: #b45309 !important; /* amber-700 */
+}
+.light .text-amber-400 {
+  color: #d97706 !important; /* amber-600 */
+}
+.light .text-teal-300 {
+  color: #0f766e !important; /* teal-700 */
+}
+.light .text-teal-400 {
+  color: #0d9488 !important; /* teal-600 */
+}
+.light .text-blue-300 {
+  color: #1d4ed8 !important; /* blue-700 */
+}
+.light .text-blue-400 {
+  color: #2563eb !important; /* blue-600 */
+}
+.light .text-sky-300 {
+  color: #0369a1 !important; /* sky-700 */
+}
+.light .text-sky-400 {
+  color: #0284c7 !important; /* sky-600 */
 }
 
 /* Sidebar navigation item overrides */

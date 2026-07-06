@@ -15,6 +15,8 @@ import {
   Phone,
   Mail,
   MapPin,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface Manufacturer {
@@ -32,6 +34,15 @@ export default function ManufacturersPage() {
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset pagination on search query change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -201,6 +212,28 @@ export default function ManufacturersPage() {
     );
   });
 
+  // Pagination calculations
+  const totalItems = filteredManufacturers.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedManufacturers = filteredManufacturers.slice(startIndex, endIndex);
+
+  // Helper for generating range array
+  const getPageNumbers = (current: number, total: number) => {
+    const maxPageButtons = 5;
+    const pages: number[] = [];
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + maxPageButtons - 1);
+    if (end - start < maxPageButtons - 1) {
+      start = Math.max(1, end - maxPageButtons + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Panel */}
@@ -263,14 +296,14 @@ export default function ManufacturersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/40 text-sm">
-                {filteredManufacturers.length === 0 ? (
+                {paginatedManufacturers.length === 0 ? (
                   <tr>
                     <td colSpan={isEditable ? 7 : 6} className="py-12 px-6 text-center text-slate-500 font-medium">
                       ไม่พบข้อมูลผู้ผลิตยา
                     </td>
                   </tr>
                 ) : (
-                  filteredManufacturers.map((man) => (
+                  paginatedManufacturers.map((man) => (
                     <tr key={man.manufacturer_id} className="hover:bg-slate-900/30 transition-colors group whitespace-nowrap">
                       <td className="py-4 px-6">
                         <span className="block text-[11px] font-bold text-emerald-400">{man.manufacturer_id}</span>
@@ -350,12 +383,12 @@ export default function ManufacturersPage() {
 
           {/* Mobile Card View */}
           <div className="block md:hidden divide-y divide-slate-800/60">
-            {filteredManufacturers.length === 0 ? (
+            {paginatedManufacturers.length === 0 ? (
               <div className="py-12 px-6 text-center text-slate-500 font-medium">
                 ไม่พบข้อมูลผู้ผลิตยา
               </div>
             ) : (
-              filteredManufacturers.map((man) => (
+              paginatedManufacturers.map((man) => (
                 <div key={man.manufacturer_id} className="p-5 flex flex-col gap-4 bg-slate-900/10">
                   {/* Card Header */}
                   <div className="flex justify-between items-start gap-4">
@@ -438,6 +471,49 @@ export default function ManufacturersPage() {
               ))
             )}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-slate-800/80 bg-slate-950/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs text-slate-400 font-medium">
+                แสดง {startIndex + 1} ถึง {Math.min(endIndex, totalItems)} จาก {totalItems} รายชื่อผู้ผลิต
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {getPageNumbers(currentPage, totalPages).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setCurrentPage(p)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                      currentPage === p
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/20'
+                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

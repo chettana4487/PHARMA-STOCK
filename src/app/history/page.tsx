@@ -13,6 +13,8 @@ import {
   Calendar,
   User,
   FileText,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface Patient {
@@ -52,6 +54,10 @@ export default function HistoryPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
   async function fetchData() {
     try {
       setLoading(true);
@@ -79,6 +85,11 @@ export default function HistoryPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Reset pagination on filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedType, startDate, endDate]);
 
   const patientMap = new Map(patients.map(p => [p.hn.trim().toLowerCase(), p.name]));
 
@@ -113,6 +124,28 @@ export default function HistoryPage() {
 
     return matchesSearch && matchesType && matchesDate;
   });
+
+  // Pagination calculations
+  const totalItems = filteredTransactions.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+  // Helper for generating range array
+  const getPageNumbers = (current: number, total: number) => {
+    const maxPageButtons = 5;
+    const pages: number[] = [];
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + maxPageButtons - 1);
+    if (end - start < maxPageButtons - 1) {
+      start = Math.max(1, end - maxPageButtons + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
 
   // Client-side CSV Exporter with UTF-8 BOM
   const exportToCSV = () => {
@@ -236,9 +269,6 @@ export default function HistoryPage() {
             onChange={(e) => setStartDate(e.target.value)}
             className="w-full bg-slate-900 border border-slate-800 text-sm rounded-2xl px-4 py-3 text-slate-300 focus:outline-none focus:border-emerald-500"
           />
-          <span className="absolute top-1.5 right-3 text-slate-600 pointer-events-none">
-            {/* Display Calendar icon indicator */}
-          </span>
         </div>
 
         {/* End Date */}
@@ -278,14 +308,14 @@ export default function HistoryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/40 text-sm">
-                {filteredTransactions.length === 0 ? (
+                {paginatedTransactions.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="py-12 px-6 text-center text-slate-500 font-medium">
                       ไม่พบประวัติข้อมูลตรงตามเงื่อนไขที่กำหนด
                     </td>
                   </tr>
                 ) : (
-                  filteredTransactions.map((t) => (
+                  paginatedTransactions.map((t) => (
                     <tr key={t.id} className="hover:bg-slate-900/30 transition-colors whitespace-nowrap">
                       <td className="py-4 px-6 font-bold text-slate-400 font-mono text-xs">
                         {t.id}
@@ -365,12 +395,12 @@ export default function HistoryPage() {
 
           {/* Mobile Card View */}
           <div className="block md:hidden divide-y divide-slate-800/60">
-            {filteredTransactions.length === 0 ? (
+            {paginatedTransactions.length === 0 ? (
               <div className="py-12 px-6 text-center text-slate-500 font-medium">
                 ไม่พบประวัติข้อมูลตรงตามเงื่อนไขที่กำหนด
               </div>
             ) : (
-              filteredTransactions.map((t) => (
+              paginatedTransactions.map((t) => (
                 <div key={t.id} className="p-5 flex flex-col gap-4 bg-slate-900/10">
                   {/* Card Header */}
                   <div className="flex justify-between items-start gap-4">
@@ -436,7 +466,7 @@ export default function HistoryPage() {
                       <div className="flex flex-col col-span-2 pt-2 border-t border-slate-800/40">
                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ผู้รับบริการ (คนไข้)</span>
                         <span className="inline-flex items-center gap-1.5 text-emerald-400 text-xs mt-1 font-bold">
-                          <User className="w-3.5 h-3.5" />
+                           <User className="w-3.5 h-3.5" />
                           {t.hn} {patientMap.get(t.hn.trim().toLowerCase()) ? `(${patientMap.get(t.hn.trim().toLowerCase())})` : ''}
                         </span>
                       </div>
@@ -470,6 +500,46 @@ export default function HistoryPage() {
               ))
             )}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-slate-800/80 bg-slate-950/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs text-slate-400 font-medium">
+                แสดง {startIndex + 1} ถึง {Math.min(endIndex, totalItems)} จาก {totalItems} รายการธุรกรรม
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {getPageNumbers(currentPage, totalPages).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setCurrentPage(p)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                      currentPage === p
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/20'
+                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -15,6 +15,8 @@ import {
   MapPin,
   Calendar,
   Camera,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import BarcodeScannerModal from '@/components/BarcodeScannerModal';
 
@@ -53,6 +55,15 @@ function MedicinesContent() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedManufacturer, setSelectedManufacturer] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, selectedManufacturer, selectedStatus]);
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -363,6 +374,28 @@ function MedicinesContent() {
     return matchesSearch && matchesCategory && matchesManufacturer && matchesStatus;
   });
 
+  // Pagination calculations
+  const totalItems = filteredMedicines.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedMedicines = filteredMedicines.slice(startIndex, endIndex);
+
+  // Helper for generating range array
+  const getPageNumbers = (current: number, total: number) => {
+    const maxPageButtons = 5;
+    const pages: number[] = [];
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + maxPageButtons - 1);
+    if (end - start < maxPageButtons - 1) {
+      start = Math.max(1, end - maxPageButtons + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Panel */}
@@ -468,14 +501,14 @@ function MedicinesContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/40">
-                {filteredMedicines.length === 0 ? (
+                {paginatedMedicines.length === 0 ? (
                   <tr>
                     <td colSpan={isEditable ? 9 : 8} className="py-12 px-6 text-center text-slate-500 text-sm font-medium">
                       ไม่พบข้อมูลตรงตามเงื่อนไขการค้นหา
                     </td>
                   </tr>
                 ) : (
-                  filteredMedicines.map((med) => {
+                  paginatedMedicines.map((med) => {
                     const status = getStatus(med);
                     return (
                       <tr key={med.medicine_id} className="hover:bg-slate-900/30 transition-colors text-sm group whitespace-nowrap">
@@ -557,12 +590,12 @@ function MedicinesContent() {
 
           {/* Mobile Card View */}
           <div className="block md:hidden divide-y divide-slate-800/60">
-            {filteredMedicines.length === 0 ? (
+            {paginatedMedicines.length === 0 ? (
               <div className="py-12 px-6 text-center text-slate-500 text-sm font-medium">
                 ไม่พบข้อมูลตรงตามเงื่อนไขการค้นหา
               </div>
             ) : (
-              filteredMedicines.map((med) => {
+              paginatedMedicines.map((med) => {
                 const status = getStatus(med);
                 return (
                   <div key={med.medicine_id} className="p-5 flex flex-col gap-4 bg-slate-900/10">
@@ -663,6 +696,49 @@ function MedicinesContent() {
               })
             )}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-slate-800/80 bg-slate-950/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs text-slate-400 font-medium">
+                แสดง {startIndex + 1} ถึง {Math.min(endIndex, totalItems)} จาก {totalItems} รายการยา
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {getPageNumbers(currentPage, totalPages).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setCurrentPage(p)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                      currentPage === p
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/20'
+                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
